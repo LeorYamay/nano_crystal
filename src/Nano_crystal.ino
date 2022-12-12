@@ -63,10 +63,12 @@ void loop() {
   }else{
     OffAction();
   }
-
   PalletSwap();
   FastLED.show(); // display this frame
   FastLED.delay(1000 / FRAMES_PER_SECOND);
+    while (off){
+    OffAction();
+  }
   // Serial.print(digitalRead(COLOR));
   // Serial.print(",");
   // Serial.println(digitalRead(PROG));
@@ -108,20 +110,23 @@ void PalletSwap()
 
 void SwitchOff()
 {
-  if (!digitalRead(10) or off) {
+  if (!digitalRead(10)) {
     off = true;
-    OffAction();
     Serial.println("Switch off");
   }
+  // while (off){
+  //   OffAction();
+  // }
 }
 
 void OffAction()
 {
+    digitalWrite(ONBOARD_LED, LOW);
+    digitalWrite(POWER_ON, LOW);
     FastLED.clear(true);
     FastLED.show(); // display this frame
     FastLED.delay(1000 / FRAMES_PER_SECOND);
-    digitalWrite(ONBOARD_LED, LOW);
-    digitalWrite(POWER_ON, LOW);
+    digitalWrite(ONBOARD_LED, HIGH);
     
 }
 
