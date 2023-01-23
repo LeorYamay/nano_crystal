@@ -16,22 +16,51 @@ int colorSchemeNum = 0;
 #define LED_PIN A0
 #define COLOR_ORDER GRB
 #define CHIPSET WS2813
-#define NUM_LEDS 144
 
 #define BRIGHTNESS 200
 #define FRAMES_PER_SECOND 9
 bool gReverseDirection = false;
 
-#define numColumns 6 // 3,4,6,8,12
-#define ledHeight round(NUM_LEDS / numColumns)
+#define numColumns 8
+#define ledHeight 8
+
+#define NUM_LEDS numColumns *ledHeight
 
 CRGB leds[NUM_LEDS];
 CRGB &posleds(int row, int col)
 {
-  int index = row + ledHeight * col;
+  //maps single panel to leds
+  bool even = (col & 1) == 0;
+  int index = 0;
+  // if (col>numColumns)
+  // {
+  //   col = col % numColumns;
+  // }
+  // if (col =numColumns)
+  // {
+  //   col = 0;
+  // }
+  // if (row < 0)
+  // {
+  //   row = 0;
+  // }
+  // if (row > ledHeight)
+  // {
+  //   row = ledHeight;
+  // }
+
+  if (even)
+  {
+    index = row + ledHeight * col;
+  }
+  else
+  {
+    index = ledHeight * (col + 1) - row;
+  }
+
   if (index > NUM_LEDS)
   {
-    index = 144;
+    index = NUM_LEDS;
   }
   if (index < 0)
   {
