@@ -29,7 +29,7 @@ bool gReverseDirection = false;
 CRGB leds[NUM_LEDS];
 CRGB &posleds(int row, int col)
 {
-  //maps single panel to leds
+  // maps single panel to leds
   bool even = (col & 1) == 0;
   int index = 0;
   // if (col>numColumns)
@@ -106,6 +106,7 @@ void loop()
     OffAction();
   }
   PalletSwap();
+  ProgramSwap();
   FastLED.show(); // display this frame
   FastLED.delay(1000 / FRAMES_PER_SECOND);
   while (off)
@@ -117,6 +118,31 @@ void loop()
   // Serial.println(digitalRead(PROG));
 }
 
+void ProgramSwap()
+{
+  if (!digitalRead(PROG))
+  {
+    if (!progSwitch)
+    {
+      Serial.print("Program change: ");
+      progSwitch = true;
+      prognum += 1;
+    }
+  }
+}
+void RunLed()
+{
+  switch (prognum)
+  {
+  case 0:
+    Fire();
+    break;
+
+  default:
+    prognum = 0;
+    break;
+  }
+}
 void PalletSwap()
 {
   if (!digitalRead(COLOR))
