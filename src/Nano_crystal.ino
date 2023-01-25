@@ -71,6 +71,9 @@ CRGB &posleds(int row, int col)
 
 CRGBPalette16 gPal;
 
+// Array of temperature readings at each simulation cell
+// [row] [column]
+static uint8_t heatpan[ledHeight][numColumns];
 void setup()
 {
   Serial.begin(9600); // USB cable
@@ -99,7 +102,7 @@ void loop()
   random16_add_entropy(random());
   if (!off)
   {
-    Fire();
+    RunLed();
   }
   else
   {
@@ -211,6 +214,32 @@ void OffAction()
 // Higher chance = more roaring fire.  Lower chance = more flickery fire.
 // Default 120, suggested range 50-200.
 #define SPARKING 50
+
+void CoolAll()
+{
+  for (int i = 0; i < ledHeight; i++)
+  {
+    for (int j = 0; j < numColumns; j++)
+    {
+      heatpan[i][j] = qsub8(heatpan[i][j], random8(0, ((COOLING * 10) / ledHeight) + 2));
+    }
+  }
+}
+uint8_t coordRow, coordCol = 0;
+uint8_t wrap(uint8_t num, uint8_t limit)
+{
+  if (num >= limit)
+  {
+    num = num % limit;
+  }
+}
+void Spiral()
+{
+  CoolAll();
+  heatpan[coordRow][coordCol] = qadd8(heatpan[coordRow][coordCol], random8(160, 255));
+  coordRow = wrap(coordRow + 1, ledHeight);
+  coordCol = wrap(coordCol + 1, numColumns);
+}
 void Fire()
 {
   // Array of temperature readings at each simulation cell
