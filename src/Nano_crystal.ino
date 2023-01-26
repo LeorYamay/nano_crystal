@@ -3,6 +3,8 @@
 #include <EEPROM.h>
 
 bool off = false;
+int vec1 = 1;
+int vec2 = 1;
 
 #define ONBOARD_LED 13
 #define POWER_ON 7
@@ -20,6 +22,8 @@ int colorSchemeNum = 0;
 
 #define BRIGHTNESS 200
 #define FRAMES_PER_SECOND 9
+
+//todo replace brightness and frames per second with variables
 bool gReverseDirection = false;
 
 #define numColumns 8
@@ -33,22 +37,6 @@ CRGB &posleds(int row, int col)
   // maps single panel to leds
   bool even = (col & 1) == 0;
   int index = 0;
-  // if (col>numColumns)
-  // {
-  //   col = col % numColumns;
-  // }
-  // if (col =numColumns)
-  // {
-  //   col = 0;
-  // }
-  // if (row < 0)
-  // {
-  //   row = 0;
-  // }
-  // if (row > ledHeight)
-  // {
-  //   row = ledHeight;
-  // }
 
   if (even)
   {
@@ -72,9 +60,10 @@ CRGB &posleds(int row, int col)
 
 CRGBPalette16 gPal;
 
-// Array of temperature readings at each simulation cell
+// 2d Array of temperature readings at each simulation cell
 // [row] [column]
 static uint8_t heatpan[ledHeight][numColumns];
+
 void setup()
 {
   Serial.begin(9600); // USB cable
@@ -167,7 +156,9 @@ void RunLed()
   case 1:
     Random();
     break;
-
+  case 2:
+    Floating();
+    break;
   default:
     prognum = 0;
     break;
@@ -214,7 +205,6 @@ void PalletSwap()
     colorSwitch = false;
   }
 }
-
 void SwitchOff()
 {
   if (!digitalRead(10))
@@ -222,11 +212,7 @@ void SwitchOff()
     off = true;
     Serial.println("Switch off");
   }
-  // while (off){
-  //   OffAction();
-  // }
 }
-
 void MemUpdate()
 {
   EEPROM.update(0, colorSchemeNum);
@@ -253,13 +239,13 @@ void OffAction()
 // Default 120, suggested range 50-200.
 #define SPARKING 50
 
-void CoolAll(int factor)
+void CoolAll(double max, double min)
 {
   for (int i = 0; i < ledHeight; i++)
   {
     for (int j = 0; j < numColumns; j++)
     {
-      heatpan[i][j] = qsub8(heatpan[i][j], random8(COOLING * 0.05, ((COOLING * factor))));
+      heatpan[i][j] = qsub8(heatpan[i][j], random8((COOLING * min), (COOLING * max)));
       UpdateLedHeat(i, j);
     }
   }
@@ -274,13 +260,13 @@ uint8_t wrap(uint8_t num, uint8_t limit)
   }
   return num;
 }
-void Spread()
+void Spread(double factor)
 {
   int row = 0;
   int col = 0;
-  for (int i = -1; i < 1; i++)
+  for (int i = -1; i <= 1; i++)
   {
-    for (int j = -1; j < 1; j++)
+    for (int j = -1; j <= 1; j++)
     {
       if (i == 0 and j == 0)
       {
@@ -288,13 +274,32 @@ void Spread()
       }
       row = wrap(coordRow + i, ledHeight);
       col = wrap(coordCol + j, numColumns);
-      heatpan[row][col] = heatpan[row][col] + heatpan[coordRow][coordCol] * 0.4;
+      heatpan[row][col] = (heatpan[row][col] + heatpan[coordRow][coordCol] * factor)/(1+factor);
       if (heatpan[row][col] >= heatpan[coordRow][coordCol])
       {
-        heatpan[row][col] = heatpan[row][col] * 0.5;
+        heatpan[row][col] = heatpan[coordRow][coordCol];
       }
       UpdateLedHeat(row, col);
     }
+  }
+}
+void SpreadHeight(double factor)
+{
+  int row = 0;
+  for (int i = -1; i <= 1; i++)
+  {
+
+    if (i == 0)
+    {
+      break;
+    }
+    row = wrap(coordRow + i, ledHeight);
+    heatpan[row][coordCol] = heatpan[row][coordCol] + heatpan[coordRow][coordCol] * factor;
+    if (heatpan[row][coordCol] > heatpan[coordRow][coordCol])
+    {
+      heatpan[row][coordCol] = heatpan[coordRow][coordCol];
+    }
+    UpdateLedHeat(row, coordCol);
   }
 }
 void UpdateLedHeat(int row, int col)
@@ -306,36 +311,44 @@ void UpdateLedHeat(int row, int col)
 void Random()
 {
   int dir = random8(0, 30);
-  int i = 1;
-  int j = 1;
 
   switch (dir)
   {
   case 0:
-    i = -i;
-
+    vec1 = -1;
     break;
   case 1:
-    i = 0;
-
+    vec1 = 0;
     break;
   case 2:
-    j = i;
-
+    vec2 = -1;
     break;
   case 3:
-    j = -i;
-
+    vec1 = 1;
+    break;
+  case 4:
+    vec2 = 1;
+    break;
+  case 5:
+    vec2 = 0;
     break;
   default:
+    if (vec1 == vec2 and vec1 == 0)
+    {
+      vec1 = 1;
+    }
     break;
   }
 
   heatpan[coordRow][coordCol] = qadd8(heatpan[coordRow][coordCol], random8(160, 255));
-  Spread();
-  coordRow = wrap(coordRow + j, ledHeight);
-  coordCol = wrap(coordCol + i, numColumns);
-  CoolAll(0.3);
+  Spread(.2);
+  if (coordRow + vec1 == 0 or coordRow + vec1 == ledHeight-1)
+  {
+    vec1 = -vec1;
+  }
+  coordRow = wrap(coordRow + vec1, ledHeight);
+  coordCol = wrap(coordCol + vec2, numColumns);
+  CoolAll(0.5, 0.1);
 }
 void Fire()
 {
@@ -343,7 +356,7 @@ void Fire()
   // static uint8_t heat[ledHeight];
 
   // Step 1.  Cool down every cell a little
-  CoolAll(0.6);
+  CoolAll(0.6, 0.2);
 
   // Step 2.  Heat from each cell drifts 'up' and diffuses a little
   for (int i = 0; i < numColumns; i++)
@@ -362,4 +375,31 @@ void Fire()
       UpdateLedHeat(y, i);
     }
   }
+}
+void Floating()
+{
+  int dir = random8(0, 4);
+  switch (dir)
+  {
+  case 0:
+    vec1 = -1;
+    break;
+  case 1:
+    vec1 = 1;
+    break;
+  default:
+    vec1 = 0;
+    break;
+  }
+  for (coordCol = 0; coordCol < numColumns; coordCol++)
+  {
+    heatpan[coordRow][coordCol] = qadd8(heatpan[coordRow][coordCol], random8(180, 255));
+    SpreadHeight(0.2);
+  }
+  CoolAll(0.5, 0.2);
+  if (coordRow + vec1 == 0 or coordRow + vec1 == ledHeight - 1)
+  {
+    vec1 = -vec1;
+  }
+  coordRow = wrap(coordRow + vec1, ledHeight);
 }
