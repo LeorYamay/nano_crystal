@@ -55,7 +55,7 @@ CRGB &posleds(int row, int col)
   }
   else
   {
-    index = ledHeight * (col + 1) - row;
+    index = ledHeight * (col + 1) - row - 1;
   }
 
   if (index > NUM_LEDS)
@@ -130,7 +130,27 @@ void ProgramSwap()
       Serial.print("Program change: ");
       progSwitch = true;
       prognum += 1;
+      FastLED.clear(true);
+      FastLED.show(); // display this frame
+      FastLED.delay(1000 / FRAMES_PER_SECOND);
+      switch (prognum)
+      {
+      case 0:
+        Serial.println("Fire");
+        break;
+      case 1:
+        Serial.println("Spiral");
+        break;
+
+      default:
+        prognum = 0;
+        break;
+      }
     }
+  }
+  else
+  {
+    progSwitch = false;
   }
 }
 void RunLed()
@@ -139,6 +159,9 @@ void RunLed()
   {
   case 0:
     Fire();
+    break;
+  case 1:
+    Spiral();
     break;
 
   default:
@@ -173,6 +196,9 @@ void PalletSwap()
         colorSchemeNum = -1;
         break;
       }
+      FastLED.clear(true);
+      FastLED.show(); // display this frame
+      FastLED.delay(1000 / FRAMES_PER_SECOND);
     }
   }
   else
@@ -193,10 +219,14 @@ void SwitchOff()
   // }
 }
 
-void OffAction()
+void MemUpdate()
 {
   EEPROM.update(0, colorSchemeNum);
   EEPROM.update(1, prognum);
+}
+void OffAction()
+{
+  MemUpdate();
   digitalWrite(ONBOARD_LED, LOW);
   digitalWrite(POWER_ON, LOW);
   FastLED.clear(true);
@@ -215,32 +245,92 @@ void OffAction()
 // Default 120, suggested range 50-200.
 #define SPARKING 50
 
-void CoolAll()
+void CoolAll(int factor)
 {
   for (int i = 0; i < ledHeight; i++)
   {
     for (int j = 0; j < numColumns; j++)
     {
-      heatpan[i][j] = qsub8(heatpan[i][j], random8(0, ((COOLING * 10) / ledHeight) + 2));
+      heatpan[i][j] = qsub8(heatpan[i][j], random8(COOLING * 0.05, ((COOLING * factor))));
+      UpdateLedHeat(i, j);
     }
   }
 }
-uint8_t coordRow, coordCol = 0;
+int coordRow = 0;
+int coordCol = 0;
 uint8_t wrap(uint8_t num, uint8_t limit)
 {
   if (num >= limit)
   {
     num = num % limit;
   }
+  return num;
+}
+void Spread()
+{
+  int row = 0;
+  int col = 0;
+  for (int i = -1; i < 1; i++)
+  {
+    for (int j = -1; j < 1; j++)
+    {
+      if (i == 0 and j == 0)
+      {
+        break;
+      }
+      row = wrap(coordRow + i, ledHeight);
+      col = wrap(coordCol + j, numColumns);
+      heatpan[row][col] = heatpan[row][col] + heatpan[coordRow][coordCol] * 0.4;
+      if (heatpan[row][col] >= heatpan[coordRow][coordCol])
+      {
+        heatpan[row][col] = heatpan[row][col] * 0.5;
+      }
+      UpdateLedHeat(row, col);
+    }
+  }
+}
+void UpdateLedHeat(int row, int col)
+{
+  uint8_t colorindex = scale8(heatpan[row][col], 240);
+  CRGB color = ColorFromPalette(gPal, colorindex);
+  posleds(row, col) = color;
 }
 void Spiral()
 {
-  CoolAll();
   heatpan[coordRow][coordCol] = qadd8(heatpan[coordRow][coordCol], random8(160, 255));
+  Spread();
   coordRow = wrap(coordRow + 1, ledHeight);
   coordCol = wrap(coordCol + 1, numColumns);
+  UpdateLedHeat(coordRow, coordCol);
+  CoolAll(0.3);
 }
 void Fire()
+{
+  // Array of temperature readings at each simulation cell
+  // static uint8_t heat[ledHeight];
+
+  // Step 1.  Cool down every cell a little
+  CoolAll(0.6);
+
+  // Step 2.  Heat from each cell drifts 'up' and diffuses a little
+  for (int i = 0; i < numColumns; i++)
+  {
+    for (int k = ledHeight - 1; k >= 2; k--)
+    {
+      heatpan[k][i] = (heatpan[k - 1][i] + heatpan[k - 2][i] + heatpan[k - 2][i]) / 3;
+      UpdateLedHeat(k, i);
+    }
+
+    // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
+    if (random8() < SPARKING)
+    {
+      int y = random8(3);
+      heatpan[y][i] = qadd8(heatpan[y][i], random8(160, 255));
+      UpdateLedHeat(y, i);
+    }
+  }
+}
+void FireOLD()
 {
   // Array of temperature readings at each simulation cell
   static uint8_t heat[ledHeight];
@@ -260,7 +350,7 @@ void Fire()
   // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
   if (random8() < SPARKING)
   {
-    int y = random8(7);
+    int y = random8(3);
     heat[y] = qadd8(heat[y], random8(160, 255));
   }
 
