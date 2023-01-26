@@ -1,6 +1,7 @@
 #include <FastLED.h>
 #include <SoftwareSerial.h>
 #include <EEPROM.h>
+
 bool off = false;
 
 #define ONBOARD_LED 13
@@ -139,7 +140,10 @@ void ProgramSwap()
         Serial.println("Fire");
         break;
       case 1:
-        Serial.println("Spiral");
+        Serial.println("Random");
+        break;
+      case 2:
+        Serial.println("Floating");
         break;
 
       default:
@@ -161,7 +165,7 @@ void RunLed()
     Fire();
     break;
   case 1:
-    Spiral();
+    Random();
     break;
 
   default:
@@ -185,12 +189,16 @@ void PalletSwap()
         Serial.println("BLUE");
         break;
       case 1:
-        gPal = CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::White);
+        gPal = CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::OrangeRed, CRGB::Orange);
         Serial.println("RED");
         break;
       case 2:
         gPal = CRGBPalette16(CRGB::Black, CRGB::DarkGreen, CRGB::LawnGreen, CRGB::GreenYellow);
         Serial.println("GREEN");
+        break;
+      case 3:
+        gPal = CRGBPalette16(CRGB::Black, CRGB::Purple, CRGB::Purple, CRGB::MediumPurple);
+        Serial.println("Purple");
         break;
       default:
         colorSchemeNum = -1;
@@ -295,13 +303,38 @@ void UpdateLedHeat(int row, int col)
   CRGB color = ColorFromPalette(gPal, colorindex);
   posleds(row, col) = color;
 }
-void Spiral()
+void Random()
 {
+  int dir = random8(0, 30);
+  int i = 1;
+  int j = 1;
+
+  switch (dir)
+  {
+  case 0:
+    i = -i;
+
+    break;
+  case 1:
+    i = 0;
+
+    break;
+  case 2:
+    j = i;
+
+    break;
+  case 3:
+    j = -i;
+
+    break;
+  default:
+    break;
+  }
+
   heatpan[coordRow][coordCol] = qadd8(heatpan[coordRow][coordCol], random8(160, 255));
   Spread();
-  coordRow = wrap(coordRow + 1, ledHeight);
-  coordCol = wrap(coordCol + 1, numColumns);
-  UpdateLedHeat(coordRow, coordCol);
+  coordRow = wrap(coordRow + j, ledHeight);
+  coordCol = wrap(coordCol + i, numColumns);
   CoolAll(0.3);
 }
 void Fire()
@@ -327,52 +360,6 @@ void Fire()
       int y = random8(3);
       heatpan[y][i] = qadd8(heatpan[y][i], random8(160, 255));
       UpdateLedHeat(y, i);
-    }
-  }
-}
-void FireOLD()
-{
-  // Array of temperature readings at each simulation cell
-  static uint8_t heat[ledHeight];
-
-  // Step 1.  Cool down every cell a little
-  for (int i = 0; i < ledHeight; i++)
-  {
-    heat[i] = qsub8(heat[i], random8(0, ((COOLING * 10) / ledHeight) + 2));
-  }
-
-  // Step 2.  Heat from each cell drifts 'up' and diffuses a little
-  for (int k = ledHeight - 1; k >= 2; k--)
-  {
-    heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2]) / 3;
-  }
-
-  // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
-  if (random8() < SPARKING)
-  {
-    int y = random8(3);
-    heat[y] = qadd8(heat[y], random8(160, 255));
-  }
-
-  // Step 4.  Map from heat cells to LED colors
-  for (int j = 0; j < ledHeight; j++)
-  {
-    // Scale the heat value from 0-255 down to 0-240
-    // for best results with color palettes.
-    uint8_t colorindex = scale8(heat[j], 240);
-    CRGB color = ColorFromPalette(gPal, colorindex);
-    int pixelnumber;
-    if (gReverseDirection)
-    {
-      pixelnumber = (NUM_LEDS - 1) - j;
-    }
-    else
-    {
-      pixelnumber = j;
-    }
-    for (int i = 0; i < numColumns; i++)
-    {
-      posleds(pixelnumber, i) = color;
     }
   }
 }
