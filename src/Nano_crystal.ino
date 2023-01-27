@@ -6,19 +6,20 @@ bool off = false;
 int vec1 = 1;
 int vec2 = 1;
 
+#pragma region arduinopins
 #define ONBOARD_LED 13
 #define POWER_ON 7
 #define POWER_SWITCH 2
 #define COLOR 6
 #define PROG 5
+#define LED_PIN A0
+#define COLOR_ORDER GRB
+#define CHIPSET WS2813
+#pragma endregion arduinopins
 bool progSwitch = false;
 int prognum = 0;
 bool colorSwitch = false;
 int colorSchemeNum = 0;
-
-#define LED_PIN A0
-#define COLOR_ORDER GRB
-#define CHIPSET WS2813
 
 int BRIGHTNESS = 200;
 int FRAMES_PER_SECOND = 9;
@@ -26,10 +27,15 @@ int FRAMES_PER_SECOND = 9;
 const int Base_BRIGHTNESS = 200;
 const int Base_FRAMES_PER_SECOND = 9;
 
-bool gReverseDirection = false;
+// bool gReverseDirection = false;
 
 const int numColumns = 8;
 const int ledHeight = 8;
+
+// coordinates of current position
+
+int coordRow = 0;
+int coordCol = 0;
 
 const int NUM_LEDS = numColumns * ledHeight;
 
@@ -133,6 +139,9 @@ void ProgramSwap()
       case 2:
         Serial.println("Floating");
         break;
+      case 3:
+        Serial.println("Rain");
+        break;
 
       default:
         prognum = 0;
@@ -150,13 +159,16 @@ void RunLed()
   switch (prognum)
   {
   case 0:
-    Fire();
+    Fire(true);
     break;
   case 1:
     Random();
     break;
   case 2:
     Floating();
+    break;
+  case 3:
+    Fire(false);
     break;
   default:
     break;
@@ -257,17 +269,15 @@ void OffAction()
 
 void CoolAll(double max, double min)
 {
-  for (int i = 0; i < ledHeight; i++)
+  for (int row = 0; row < ledHeight; row++)
   {
-    for (int j = 0; j < numColumns; j++)
+    for (int col = 0; col < numColumns; col++)
     {
-      heatpan[i][j] = qsub8(heatpan[i][j], random8((COOLING * min), (COOLING * max)));
-      UpdateLedHeat(i, j);
+      heatpan[row][col] = qsub8(heatpan[row][col], random8((COOLING * min), (COOLING * max)));
+      UpdateLedHeat(row, col);
     }
   }
 }
-int coordRow = 0;
-int coordCol = 0;
 uint8_t wrap(uint8_t num, uint8_t limit)
 {
   if (num >= limit)
@@ -370,31 +380,43 @@ void Random()
   coordCol = wrap(coordCol + vec2, numColumns);
   CoolAll(0.5, 0.1);
 }
-void Fire()
+void Fire(bool flip)
 {
-  // Array of temperature readings at each simulation cell
-  // static uint8_t heat[ledHeight];
 
-  // Step 1.  Cool down every cell a little
-  CoolAll(0.6, 0.2);
-
-  // Step 2.  Heat from each cell drifts 'up' and diffuses a little
   for (int i = 0; i < numColumns; i++)
   {
-    for (int k = ledHeight - 1; k >= 2; k--)
+    if (flip)
     {
-      heatpan[k][i] = (heatpan[k - 1][i] + heatpan[k - 2][i] + heatpan[k - 2][i]) / 3;
-      UpdateLedHeat(k, i);
+      for (int k = 2; k < ledHeight - 1; k++)
+      {
+        heatpan[k][i] = (heatpan[k + 1][i] + heatpan[k + 2][i] + heatpan[k + 2][i]) / 3;
+        UpdateLedHeat(k, i);
+      }
     }
-
-    // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
+    else
+    {
+      for (int k = ledHeight - 1; k >= 2; k--)
+      {
+        heatpan[k][i] = (heatpan[k - 1][i] + heatpan[k - 2][i] + heatpan[k - 2][i]) / 3;
+        UpdateLedHeat(k, i);
+      }
+    }
     if (random8() < SPARKING)
     {
-      int y = random8(3);
+      int y;
+      if (flip)
+      {
+        y = random8(ledHeight - 4, ledHeight);
+      }
+      else
+      {
+        y = random8(3);
+      }
       heatpan[y][i] = qadd8(heatpan[y][i], random8(160, 255));
       UpdateLedHeat(y, i);
     }
   }
+  CoolAll(0.6, 0.2);
 }
 void Floating()
 {
