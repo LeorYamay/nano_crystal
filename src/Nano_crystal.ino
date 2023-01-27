@@ -20,16 +20,18 @@ int colorSchemeNum = 0;
 #define COLOR_ORDER GRB
 #define CHIPSET WS2813
 
-#define BRIGHTNESS 200
-#define FRAMES_PER_SECOND 9
+int BRIGHTNESS = 200;
+int FRAMES_PER_SECOND = 9;
 
-//todo replace brightness and frames per second with variables
+const int Base_BRIGHTNESS = 200;
+const int Base_FRAMES_PER_SECOND = 9;
+
 bool gReverseDirection = false;
 
-#define numColumns 8
-#define ledHeight 8
+const int numColumns = 8;
+const int ledHeight = 8;
 
-#define NUM_LEDS numColumns *ledHeight
+const int NUM_LEDS = numColumns * ledHeight;
 
 CRGB leds[NUM_LEDS];
 CRGB &posleds(int row, int col)
@@ -74,7 +76,6 @@ void setup()
   pinMode(COLOR, INPUT_PULLUP);
   pinMode(PROG, INPUT_PULLUP);
   pinMode(ONBOARD_LED, OUTPUT);
-  gPal = CRGBPalette16(CRGB::Black, CRGB::Blue, CRGB::Aqua, CRGB::White);
   digitalWrite(POWER_ON, HIGH);
   digitalWrite(ONBOARD_LED, HIGH);
 
@@ -90,6 +91,9 @@ void setup()
 void loop()
 {
   random16_add_entropy(random());
+  PalletSwap();
+  ProgramSwap();
+  RandomizeTime();
   if (!off)
   {
     RunLed();
@@ -98,17 +102,12 @@ void loop()
   {
     OffAction();
   }
-  PalletSwap();
-  ProgramSwap();
   FastLED.show(); // display this frame
   FastLED.delay(1000 / FRAMES_PER_SECOND);
   while (off)
   {
     OffAction();
   }
-  // Serial.print(digitalRead(COLOR));
-  // Serial.print(",");
-  // Serial.println(digitalRead(PROG));
 }
 
 void ProgramSwap()
@@ -160,7 +159,6 @@ void RunLed()
     Floating();
     break;
   default:
-    prognum = 0;
     break;
   }
 }
@@ -176,25 +174,22 @@ void PalletSwap()
       switch (colorSchemeNum)
       {
       case 0:
-        gPal = CRGBPalette16(CRGB::Black, CRGB::Blue, CRGB::Aqua, CRGB::White);
         Serial.println("BLUE");
         break;
       case 1:
-        gPal = CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::OrangeRed, CRGB::Orange);
         Serial.println("RED");
         break;
       case 2:
-        gPal = CRGBPalette16(CRGB::Black, CRGB::DarkGreen, CRGB::LawnGreen, CRGB::GreenYellow);
         Serial.println("GREEN");
         break;
       case 3:
-        gPal = CRGBPalette16(CRGB::Black, CRGB::Purple, CRGB::Purple, CRGB::MediumPurple);
         Serial.println("Purple");
         break;
       default:
-        colorSchemeNum = -1;
+        colorSchemeNum = 0;
         break;
       }
+      PalletSet();
       FastLED.clear(true);
       FastLED.show(); // display this frame
       FastLED.delay(1000 / FRAMES_PER_SECOND);
@@ -203,6 +198,27 @@ void PalletSwap()
   else
   {
     colorSwitch = false;
+  }
+  PalletSet();
+}
+void PalletSet()
+{
+  switch (colorSchemeNum)
+  {
+  case 0:
+    gPal = CRGBPalette16(CRGB::Black, CRGB::Blue, CRGB::Aqua, CRGB::White);
+    break;
+  case 1:
+    gPal = CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::OrangeRed, CRGB::Orange);
+    break;
+  case 2:
+    gPal = CRGBPalette16(CRGB::Black, CRGB::DarkGreen, CRGB::LawnGreen, CRGB::GreenYellow);
+    break;
+  case 3:
+    gPal = CRGBPalette16(CRGB::Black, CRGB::Purple, CRGB::Purple, CRGB::MediumPurple);
+    break;
+  default:
+    break;
   }
 }
 void SwitchOff()
@@ -268,18 +284,20 @@ void Spread(double factor)
   {
     for (int j = -1; j <= 1; j++)
     {
-      if (i == 0 and j == 0)
+      if ((i == 0) and (j == 0))
       {
-        break;
       }
-      row = wrap(coordRow + i, ledHeight);
-      col = wrap(coordCol + j, numColumns);
-      heatpan[row][col] = (heatpan[row][col] + heatpan[coordRow][coordCol] * factor)/(1+factor);
-      if (heatpan[row][col] >= heatpan[coordRow][coordCol])
+      else
       {
-        heatpan[row][col] = heatpan[coordRow][coordCol];
+        row = wrap(coordRow + i, ledHeight);
+        col = wrap(coordCol + j, numColumns);
+        heatpan[row][col] = (heatpan[row][col] + heatpan[coordRow][coordCol] * factor) / (1 + factor);
+        if (heatpan[row][col] >= heatpan[coordRow][coordCol])
+        {
+          heatpan[row][col] = heatpan[coordRow][coordCol];
+        }
+        UpdateLedHeat(row, col);
       }
-      UpdateLedHeat(row, col);
     }
   }
 }
@@ -291,15 +309,17 @@ void SpreadHeight(double factor)
 
     if (i == 0)
     {
-      break;
     }
-    row = wrap(coordRow + i, ledHeight);
-    heatpan[row][coordCol] = heatpan[row][coordCol] + heatpan[coordRow][coordCol] * factor;
-    if (heatpan[row][coordCol] > heatpan[coordRow][coordCol])
+    else
     {
-      heatpan[row][coordCol] = heatpan[coordRow][coordCol];
+      row = wrap(coordRow + i, ledHeight);
+      heatpan[row][coordCol] = (heatpan[row][coordCol] + heatpan[coordRow][coordCol] * factor);
+      if (heatpan[row][coordCol] > heatpan[coordRow][coordCol])
+      {
+        heatpan[row][coordCol] = heatpan[coordRow][coordCol];
+      }
+      UpdateLedHeat(row, coordCol);
     }
-    UpdateLedHeat(row, coordCol);
   }
 }
 void UpdateLedHeat(int row, int col)
@@ -311,7 +331,6 @@ void UpdateLedHeat(int row, int col)
 void Random()
 {
   int dir = random8(0, 30);
-
   switch (dir)
   {
   case 0:
@@ -332,17 +351,18 @@ void Random()
   case 5:
     vec2 = 0;
     break;
+
   default:
     if (vec1 == vec2 and vec1 == 0)
     {
-      vec1 = 1;
+      vec1 = random8(-1, 1);
+      vec2 = random8(-1, 1);
     }
     break;
   }
-
   heatpan[coordRow][coordCol] = qadd8(heatpan[coordRow][coordCol], random8(160, 255));
   Spread(.2);
-  if (coordRow + vec1 == 0 or coordRow + vec1 == ledHeight-1)
+  if ((coordRow + vec1 == 0) or (coordRow + vec1 == ledHeight - 1))
   {
     vec1 = -vec1;
   }
@@ -378,17 +398,21 @@ void Fire()
 }
 void Floating()
 {
-  int dir = random8(0, 4);
+  int dir = random8(0, 12);
   switch (dir)
   {
-  case 0:
+  case 0 ... 2:
     vec1 = -1;
     break;
-  case 1:
+  case 3 ... 5:
     vec1 = 1;
     break;
-  default:
+  case 6:
     vec1 = 0;
+    break;
+  case 7:
+    FRAMES_PER_SECOND--;
+  default:
     break;
   }
   for (coordCol = 0; coordCol < numColumns; coordCol++)
@@ -397,9 +421,35 @@ void Floating()
     SpreadHeight(0.2);
   }
   CoolAll(0.5, 0.2);
-  if (coordRow + vec1 == 0 or coordRow + vec1 == ledHeight - 1)
+  if ((coordRow + vec1 == 0) or (coordRow + vec1 == ledHeight - 1))
   {
     vec1 = -vec1;
   }
   coordRow = wrap(coordRow + vec1, ledHeight);
+}
+void RandomizeTime()
+{
+  int change = random8(0, 30);
+  switch (change)
+  {
+  case 0:
+    FRAMES_PER_SECOND--;
+    break;
+  case 1:
+    FRAMES_PER_SECOND -= 2;
+    break;
+  case 2 ... 4:
+    FRAMES_PER_SECOND++;
+    break;
+  default:
+    break;
+  }
+  if (FRAMES_PER_SECOND < 3)
+  {
+    FRAMES_PER_SECOND = 3;
+  }
+  if (FRAMES_PER_SECOND > Base_FRAMES_PER_SECOND + 3)
+  {
+    FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND + 3;
+  }
 }
