@@ -22,7 +22,7 @@ bool colorSwitch = false;
 int colorSchemeNum = 0;
 
 int BRIGHTNESS = 200;
-int FRAMES_PER_SECOND = 9;
+double FRAMES_PER_SECOND = 9;
 
 const int Base_BRIGHTNESS = 200;
 const int Base_FRAMES_PER_SECOND = 9;
@@ -159,7 +159,7 @@ void RunLed()
   switch (prognum)
   {
   case 0:
-    Fire(true);
+    Fire(false);
     break;
   case 1:
     Random();
@@ -168,7 +168,7 @@ void RunLed()
     Floating();
     break;
   case 3:
-    Fire(false);
+    Fire(true);
     break;
   default:
     break;
@@ -257,11 +257,6 @@ void OffAction()
   digitalWrite(ONBOARD_LED, HIGH);
 }
 
-// COOLING: How much does the air cool as it rises?
-// Less cooling = taller flames.  More cooling = shorter flames.
-// Default 55, suggested range 20-100
-#define COOLING 100
-
 // SPARKING: What chance (out of 255) is there that a new spark will be lit?
 // Higher chance = more roaring fire.  Lower chance = more flickery fire.
 // Default 120, suggested range 50-200.
@@ -269,6 +264,7 @@ void OffAction()
 
 void CoolAll(double max, double min)
 {
+  const int COOLING = 100;
   for (int row = 0; row < ledHeight; row++)
   {
     for (int col = 0; col < numColumns; col++)
@@ -442,7 +438,7 @@ void Floating()
     heatpan[coordRow][coordCol] = qadd8(heatpan[coordRow][coordCol], random8(180, 255));
     SpreadHeight(0.2);
   }
-  CoolAll(0.5, 0.2);
+  CoolAll(0.3, 0);
   if ((coordRow + vec1 == 0) or (coordRow + vec1 == ledHeight - 1))
   {
     vec1 = -vec1;
@@ -455,23 +451,23 @@ void RandomizeTime()
   switch (change)
   {
   case 0:
-    FRAMES_PER_SECOND--;
+    FRAMES_PER_SECOND -= 0.5;
     break;
   case 1:
-    FRAMES_PER_SECOND -= 2;
+    FRAMES_PER_SECOND -= 1;
     break;
   case 2 ... 4:
-    FRAMES_PER_SECOND++;
+    FRAMES_PER_SECOND += 0.5;
     break;
   default:
     break;
   }
-  if (FRAMES_PER_SECOND < 3)
+  if (FRAMES_PER_SECOND < Base_FRAMES_PER_SECOND - 3)
   {
-    FRAMES_PER_SECOND = 3;
+    FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND - 3;
   }
-  if (FRAMES_PER_SECOND > Base_FRAMES_PER_SECOND + 3)
+  if (FRAMES_PER_SECOND > Base_FRAMES_PER_SECOND + 2)
   {
-    FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND + 3;
+    FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND + 2;
   }
 }
