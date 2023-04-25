@@ -12,19 +12,19 @@ int vec2 = 1;
 #define POWER_SWITCH 2
 #define COLOR 6
 #define PROG 5
-#define LED_PIN A0
+#define LED_PIN A1
 #define COLOR_ORDER GRB
 #define CHIPSET WS2813
 #pragma endregion arduinopins
 bool progSwitch = false;
-int prognum = 0;
+int prognum = 3;
 bool colorSwitch = false;
-int colorSchemeNum = 0;
+int colorSchemeNum = 2;
 
-int BRIGHTNESS = 200;
+int BRIGHTNESS = 255;
 double FRAMES_PER_SECOND = 9;
 
-const int Base_BRIGHTNESS = 200;
+// const int Base_BRIGHTNESS = 200;
 const int Base_FRAMES_PER_SECOND = 9;
 
 // bool gReverseDirection = false;
@@ -81,15 +81,15 @@ void setup()
   pinMode(POWER_SWITCH, INPUT_PULLUP);
   pinMode(COLOR, INPUT_PULLUP);
   pinMode(PROG, INPUT_PULLUP);
-  pinMode(ONBOARD_LED, OUTPUT);
+  // pinMode(ONBOARD_LED, OUTPUT);
   digitalWrite(POWER_ON, HIGH);
-  digitalWrite(ONBOARD_LED, HIGH);
+  // digitalWrite(ONBOARD_LED, HIGH);
 
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
   attachInterrupt(0, SwitchOff, CHANGE);
-  colorSchemeNum = EEPROM.read(0);
-  prognum = EEPROM.read(1);
+  // colorSchemeNum = EEPROM.read(0);
+  // prognum = EEPROM.read(1);
   delay(1000);
   Serial.println("------setup done------");
 }
@@ -248,13 +248,13 @@ void MemUpdate()
 }
 void OffAction()
 {
-  MemUpdate();
-  digitalWrite(ONBOARD_LED, LOW);
+  // MemUpdate();
+  // digitalWrite(ONBOARD_LED, LOW);
   digitalWrite(POWER_ON, LOW);
   FastLED.clear(true);
   FastLED.show(); // display this frame
   FastLED.delay(1000 / FRAMES_PER_SECOND);
-  digitalWrite(ONBOARD_LED, HIGH);
+  // digitalWrite(ONBOARD_LED, HIGH);
 }
 
 // SPARKING: What chance (out of 255) is there that a new spark will be lit?
