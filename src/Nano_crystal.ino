@@ -10,15 +10,16 @@ int vec2 = 1;
 #define ONBOARD_LED 13
 #define POWER_ON 7
 #define POWER_SWITCH 2
-#define COLOR 6
-#define PROG 5
+#define PREV 6
+#define NEXT 5
 #define LED_PIN A1
 #define COLOR_ORDER GRB
 #define CHIPSET WS2813
 #pragma endregion arduinopins
-bool progSwitch = false;
+bool nextSwitch = false;
+int setNum = -1;
 int prognum = 3;
-bool colorSwitch = false;
+bool prevSwitch = false;
 int colorSchemeNum = 1;
 
 int BRIGHTNESS = 255;
@@ -79,8 +80,8 @@ void setup()
   off = false;
   pinMode(POWER_ON, OUTPUT);
   pinMode(POWER_SWITCH, INPUT_PULLUP);
-  pinMode(COLOR, INPUT_PULLUP);
-  pinMode(PROG, INPUT_PULLUP);
+  pinMode(PREV, INPUT_PULLUP);
+  pinMode(NEXT, INPUT_PULLUP);
   // pinMode(ONBOARD_LED, OUTPUT);
   digitalWrite(POWER_ON, HIGH);
   // digitalWrite(ONBOARD_LED, HIGH);
@@ -97,11 +98,13 @@ void setup()
 void loop()
 {
   random16_add_entropy(random());
-  PalletSwap();
-  ProgramSwap();
+  // PalletSwap();
+  // ProgramSwap();
+  Set();
   RandomizeTime();
   if (!off)
   {
+    PalletSet();
     RunLed();
   }
   else
@@ -115,45 +118,109 @@ void loop()
     OffAction();
   }
 }
-
-void ProgramSwap()
+int SwitchUp(int value, bool up)
 {
-  if (!digitalRead(PROG))
+  int temp = value;
+  if (up)
   {
-    if (!progSwitch)
+    temp++;
+  }
+  else
+  {
+    temp--;
+  }
+  if (abs(temp) > 1)
+  {
+    return value;
+  }
+  else
+    return temp;
+}
+void Set()
+{
+  if (!digitalRead(NEXT))
+  {
+    if (!nextSwitch)
     {
-      Serial.print("Program change: ");
-      progSwitch = true;
-      prognum += 1;
-      FastLED.clear(true);
-      FastLED.show(); // display this frame
-      FastLED.delay(1000 / FRAMES_PER_SECOND);
-      switch (prognum)
-      {
-      case 0:
-        Serial.println("Fire");
-        break;
-      case 1:
-        Serial.println("Random");
-        break;
-      case 2:
-        Serial.println("Floating");
-        break;
-      case 3:
-        Serial.println("Rain");
-        break;
-
-      default:
-        prognum = 0;
-        break;
-      }
+      nextSwitch = true;
+      setNum = SwitchUp(setNum, true);
     }
   }
   else
   {
-    progSwitch = false;
+    nextSwitch = false;
+  }
+  if (!digitalRead(PREV))
+  {
+    if (!prevSwitch)
+    {
+      prevSwitch = true;
+      setNum = SwitchUp(setNum, false);
+    }
+  }
+  else
+  {
+    prevSwitch = false;
+  }
+  switch (setNum)
+  {
+  case -1:
+    prognum = 3;
+    colorSchemeNum = 1;
+    break;
+  case 0:
+    prognum = 3;
+    colorSchemeNum = 2;
+    break;
+  case 1:
+    prognum = 1;
+    colorSchemeNum = 2;
+    break;
+  default:
+    prognum = 0;
+    colorSchemeNum = 1;
+    setNum = 0;
+    break;
   }
 }
+
+// void ProgramSwap()
+// {
+//   if (!digitalRead(NEXT))
+//   {
+//     if (!progSwitch)
+//     {
+//       Serial.print("Program change: ");
+//       progSwitch = true;
+//       prognum += 1;
+//       FastLED.clear(true);
+//       FastLED.show(); // display this frame
+//       FastLED.delay(1000 / FRAMES_PER_SECOND);
+//       switch (prognum)
+//       {
+//       case 0:
+//         Serial.println("Fire");
+//         break;
+//       case 1:
+//         Serial.println("Random");
+//         break;
+//       case 2:
+//         Serial.println("Floating");
+//         break;
+//       case 3:
+//         Serial.println("Rain");
+//         break;
+//       default:
+//         prognum = 0;
+//         break;
+//       }
+//     }
+//   }
+//   else
+//   {
+//     progSwitch = false;
+//   }
+// }
 void RunLed()
 {
   switch (prognum)
@@ -174,45 +241,45 @@ void RunLed()
     break;
   }
 }
-void PalletSwap()
-{
-  if (!digitalRead(COLOR))
-  {
-    if (!colorSwitch)
-    {
-      Serial.print("colorscheme change: ");
-      colorSwitch = true;
-      colorSchemeNum += 1;
-      switch (colorSchemeNum)
-      {
-      case 0:
-        Serial.println("BLUE");
-        break;
-      case 1:
-        Serial.println("RED");
-        break;
-      case 2:
-        Serial.println("GREEN");
-        break;
-      case 3:
-        Serial.println("Purple");
-        break;
-      default:
-        colorSchemeNum = 0;
-        break;
-      }
-      PalletSet();
-      FastLED.clear(true);
-      FastLED.show(); // display this frame
-      FastLED.delay(1000 / FRAMES_PER_SECOND);
-    }
-  }
-  else
-  {
-    colorSwitch = false;
-  }
-  PalletSet();
-}
+// void PalletSwap()
+// {
+//   if (!digitalRead(PREV))
+//   {
+//     if (!colorSwitch)
+//     {
+//       Serial.print("colorscheme change: ");
+//       colorSwitch = true;
+//       colorSchemeNum += 1;
+//       switch (colorSchemeNum)
+//       {
+//       case 0:
+//         Serial.println("BLUE");
+//         break;
+//       case 1:
+//         Serial.println("RED");
+//         break;
+//       case 2:
+//         Serial.println("GREEN");
+//         break;
+//       case 3:
+//         Serial.println("Purple");
+//         break;
+//       default:
+//         colorSchemeNum = 0;
+//         break;
+//       }
+//       PalletSet();
+//       FastLED.clear(true);
+//       FastLED.show(); // display this frame
+//       FastLED.delay(1000 / FRAMES_PER_SECOND);
+//     }
+//   }
+//   else
+//   {
+//     colorSwitch = false;
+//   }
+//   PalletSet();
+// }
 void PalletSet()
 {
   switch (colorSchemeNum)
