@@ -19,7 +19,7 @@ int vec2 = 1;
 bool progSwitch = false;
 int prognum = 3;
 bool colorSwitch = false;
-int colorSchemeNum = 2;
+int colorSchemeNum = 1;
 
 int BRIGHTNESS = 255;
 double FRAMES_PER_SECOND = 9;
@@ -221,7 +221,7 @@ void PalletSet()
     gPal = CRGBPalette16(CRGB::Black, CRGB::Blue, CRGB::Aqua, CRGB::White);
     break;
   case 1:
-    gPal = CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::OrangeRed, CRGB::Orange);
+    gPal = CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::OrangeRed, CRGB::TempOrange);
     break;
   case 2:
     gPal = CRGBPalette16(CRGB::Black, CRGB::DarkGreen, CRGB::LawnGreen, CRGB::GreenYellow);
