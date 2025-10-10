@@ -1,7 +1,8 @@
+#include "Nano_crystal.h"
 #include <FastLED.h>
 #include <SoftwareSerial.h>
-#include <EEPROM.h>
 
+// Globals
 bool off = false;
 int vec1 = 1;
 int vec2 = 1;
@@ -73,6 +74,24 @@ CRGBPalette16 gPal;
 // [row] [column]
 static uint8_t heatpan[ledHeight][numColumns];
 
+// Forward declarations
+void Set();
+void PalletSet();
+void RunLed();
+void OffAction();
+void SwitchOff();
+void MemUpdate();
+void UpdateLedHeat(int row, int col);
+void Random();
+void Fire(bool flip);
+void Floating();
+void RandomizeTime();
+int SwitchUp(int value, bool up);
+void CoolAll(double max, double min);
+uint8_t wrap(uint8_t num, uint8_t limit);
+void Spread(double factor);
+void SpreadHeight(double factor);
+
 void setup()
 {
   Serial.begin(9600); // USB cable
@@ -118,6 +137,7 @@ void loop()
     OffAction();
   }
 }
+
 int SwitchUp(int value, bool up)
 {
   int temp = value;
@@ -184,43 +204,6 @@ void Set()
   }
 }
 
-// void ProgramSwap()
-// {
-//   if (!digitalRead(NEXT))
-//   {
-//     if (!progSwitch)
-//     {
-//       Serial.print("Program change: ");
-//       progSwitch = true;
-//       prognum += 1;
-//       FastLED.clear(true);
-//       FastLED.show(); // display this frame
-//       FastLED.delay(1000 / FRAMES_PER_SECOND);
-//       switch (prognum)
-//       {
-//       case 0:
-//         Serial.println("Fire");
-//         break;
-//       case 1:
-//         Serial.println("Random");
-//         break;
-//       case 2:
-//         Serial.println("Floating");
-//         break;
-//       case 3:
-//         Serial.println("Rain");
-//         break;
-//       default:
-//         prognum = 0;
-//         break;
-//       }
-//     }
-//   }
-//   else
-//   {
-//     progSwitch = false;
-//   }
-// }
 void RunLed()
 {
   switch (prognum)
@@ -241,45 +224,7 @@ void RunLed()
     break;
   }
 }
-// void PalletSwap()
-// {
-//   if (!digitalRead(PREV))
-//   {
-//     if (!colorSwitch)
-//     {
-//       Serial.print("colorscheme change: ");
-//       colorSwitch = true;
-//       colorSchemeNum += 1;
-//       switch (colorSchemeNum)
-//       {
-//       case 0:
-//         Serial.println("BLUE");
-//         break;
-//       case 1:
-//         Serial.println("RED");
-//         break;
-//       case 2:
-//         Serial.println("GREEN");
-//         break;
-//       case 3:
-//         Serial.println("Purple");
-//         break;
-//       default:
-//         colorSchemeNum = 0;
-//         break;
-//       }
-//       PalletSet();
-//       FastLED.clear(true);
-//       FastLED.show(); // display this frame
-//       FastLED.delay(1000 / FRAMES_PER_SECOND);
-//     }
-//   }
-//   else
-//   {
-//     colorSwitch = false;
-//   }
-//   PalletSet();
-// }
+
 void PalletSet()
 {
   switch (colorSchemeNum)
@@ -288,7 +233,7 @@ void PalletSet()
     gPal = CRGBPalette16(CRGB::Black, CRGB::Blue, CRGB::Aqua, CRGB::White);
     break;
   case 1:
-    gPal = CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::OrangeRed, CRGB::TempOrange);
+    gPal = CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::OrangeRed, CRGB::Orange);
     break;
   case 2:
     gPal = CRGBPalette16(CRGB::Black, CRGB::DarkGreen, CRGB::LawnGreen, CRGB::GreenYellow);
@@ -450,7 +395,10 @@ void Fire(bool flip)
   {
     if (flip)
     {
-      for (int k = 2; k < ledHeight - 1; k++)
+      // Ensure k+2 stays within bounds: valid indices are 0..ledHeight-1
+      // so k must be <= ledHeight-3. Previously the loop allowed k such that
+      // k+2 == ledHeight which is out-of-bounds and invokes UB.
+      for (int k = 2; k <= ledHeight - 3; k++)
       {
         heatpan[k][i] = (heatpan[k + 1][i] + heatpan[k + 2][i] + heatpan[k + 2][i]) / 3;
         UpdateLedHeat(k, i);
