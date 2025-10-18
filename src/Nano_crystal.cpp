@@ -1,45 +1,31 @@
 #include "Nano_crystal.h"
 #include <FastLED.h>
 #include <SoftwareSerial.h>
+#include "config.h"
 
 // Globals
 bool off = false;
 int vec1 = 1;
 int vec2 = 1;
 
-#pragma region arduinopins
-#define ONBOARD_LED 13
-#define POWER_ON 7
-#define POWER_SWITCH 2
-#define PREV 6
-#define NEXT 5
-#define LED_PIN A1
-#define COLOR_ORDER GRB
-#define CHIPSET WS2813
-#pragma endregion arduinopins
+// pins, chipset, geometry, and defaults are in config.h
 bool nextSwitch = false;
 int setNum = -1;
 int prognum = 3;
 bool prevSwitch = false;
 int colorSchemeNum = 1;
 
-int BRIGHTNESS = 255;
-double FRAMES_PER_SECOND = 9;
-
-// const int Base_BRIGHTNESS = 200;
-const int Base_FRAMES_PER_SECOND = 9;
+int BRIGHTNESS = DEFAULT_BRIGHTNESS; // runtime brightness (can be changed)
+double FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND; // runtime FPS
 
 // bool gReverseDirection = false;
 
-const int numColumns = 8;
-const int ledHeight = 8;
+// numColumns, ledHeight, NUM_LEDS are in config.h
 
 // coordinates of current position
 
 int coordRow = 0;
 int coordCol = 0;
-
-const int NUM_LEDS = numColumns * ledHeight;
 
 CRGB leds[NUM_LEDS];
 CRGB &posleds(int row, int col)
