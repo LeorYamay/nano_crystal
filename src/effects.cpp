@@ -205,7 +205,14 @@ void RandomizeTime()
 
 // Spiral effect implementation ------------------------------------------------
 // 8x8 bitmap frames encoded as 64-bit little-endian rows (LSB is column 0)
-const uint64_t IMAGES[] = {0x0204080000102040ULL, 0x0408100000081020ULL, 0x0080402004020100ULL, 0x0000804422010000ULL};
+const uint64_t IMAGES[] = {
+  0x0204080000102040ULL,
+  0x0408100000081020ULL,
+  0x2020200000040404ULL,
+  0x0080402004020100ULL,
+  0x0000804422010000ULL,
+  0x0000070000e00000ULL
+};
 const int IMAGES_LEN = sizeof(IMAGES) / sizeof(IMAGES[0]);
 
 static void SpiralImpl(bool mirrored)
