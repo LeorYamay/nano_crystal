@@ -27,38 +27,9 @@ double FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND; // runtime FPS
 int coordRow = 0;
 int coordCol = 0;
 
-CRGB leds[NUM_LEDS];
-inline CRGB &posleds(int row, int col)
-{
-  // maps 2D (row,col) into the 1D leds[] array for serpentine wiring
-  // ensure coordinates are in-bounds (clamp) to avoid UB
-  if (row < 0)
-    row = 0;
-  else if (row >= ledHeight)
-    row = ledHeight - 1;
+#include "led_panel.h"
 
-  if (col < 0)
-    col = 0;
-  else if (col >= numColumns)
-    col = numColumns - 1;
-
-  // even columns go top->bottom, odd columns bottom->top
-  int index = col * ledHeight + (((col & 1) == 0) ? row : (ledHeight - 1 - row));
-
-  // index must be within 0 .. NUM_LEDS-1
-  if (index < 0)
-    index = 0;
-  else if (index >= NUM_LEDS)
-    index = NUM_LEDS - 1;
-
-  return leds[index];
-}
-
-CRGBPalette16 gPal;
-
-// 2d Array of temperature readings at each simulation cell
-// [row] [column]
-static uint8_t heatpan[ledHeight][numColumns];
+// led storage, heatpan and palette now belong to led_panel module
 
 // Forward declarations
 void Set();
@@ -216,16 +187,16 @@ void PalletSet()
   switch (colorSchemeNum)
   {
   case 0:
-    gPal = CRGBPalette16(CRGB::Black, CRGB::Blue, CRGB::Aqua, CRGB::White);
+    ledpanel_set_palette(CRGBPalette16(CRGB::Black, CRGB::Blue, CRGB::Aqua, CRGB::White));
     break;
   case 1:
-    gPal = CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::OrangeRed, CRGB::Orange);
+    ledpanel_set_palette(CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::OrangeRed, CRGB::Orange));
     break;
   case 2:
-    gPal = CRGBPalette16(CRGB::Black, CRGB::DarkGreen, CRGB::LawnGreen, CRGB::GreenYellow);
+    ledpanel_set_palette(CRGBPalette16(CRGB::Black, CRGB::DarkGreen, CRGB::LawnGreen, CRGB::GreenYellow));
     break;
   case 3:
-    gPal = CRGBPalette16(CRGB::Black, CRGB::Purple, CRGB::Purple, CRGB::MediumPurple);
+    ledpanel_set_palette(CRGBPalette16(CRGB::Black, CRGB::Purple, CRGB::Purple, CRGB::MediumPurple));
     break;
   default:
     break;
@@ -267,8 +238,9 @@ void CoolAll(double max, double min)
   {
     for (int col = 0; col < numColumns; col++)
     {
-      heatpan[row][col] = qsub8(heatpan[row][col], random8((COOLING * min), (COOLING * max)));
-      UpdateLedHeat(row, col);
+      uint8_t newh = qsub8(ledpanel_get_heat(row, col), random8((int)(COOLING * min), (int)(COOLING * max)));
+      ledpanel_set_heat(row, col, newh);
+      ledpanel_update_color_from_heat(row, col);
     }
   }
 }
@@ -282,55 +254,18 @@ uint8_t wrap(uint8_t num, uint8_t limit)
 }
 void Spread(double factor)
 {
-  int row = 0;
-  int col = 0;
-  for (int i = -1; i <= 1; i++)
-  {
-    for (int j = -1; j <= 1; j++)
-    {
-      if ((i == 0) and (j == 0))
-      {
-      }
-      else
-      {
-        row = wrap(coordRow + i, ledHeight);
-        col = wrap(coordCol + j, numColumns);
-        heatpan[row][col] = (heatpan[row][col] + heatpan[coordRow][coordCol] * factor) / (1 + factor);
-        if (heatpan[row][col] >= heatpan[coordRow][coordCol])
-        {
-          heatpan[row][col] = heatpan[coordRow][coordCol];
-        }
-        UpdateLedHeat(row, col);
-      }
-    }
-  }
+  // delegate to led_panel spread helper
+  ledpanel_spread_from(coordRow, coordCol, factor);
 }
 void SpreadHeight(double factor)
 {
-  int row = 0;
-  for (int i = -1; i <= 1; i++)
-  {
-
-    if (i == 0)
-    {
-    }
-    else
-    {
-      row = wrap(coordRow + i, ledHeight);
-      heatpan[row][coordCol] = (heatpan[row][coordCol] + heatpan[coordRow][coordCol] * factor);
-      if (heatpan[row][coordCol] > heatpan[coordRow][coordCol])
-      {
-        heatpan[row][coordCol] = heatpan[coordRow][coordCol];
-      }
-      UpdateLedHeat(row, coordCol);
-    }
-  }
+  // delegate to led_panel vertical spread helper
+  ledpanel_spread_height_from(coordRow, coordCol, factor);
 }
 void UpdateLedHeat(int row, int col)
 {
-  uint8_t colorindex = scale8(heatpan[row][col], 240);
-  CRGB color = ColorFromPalette(gPal, colorindex);
-  posleds(row, col) = color;
+  // update color from led_panel's heat and palette
+  ledpanel_update_color_from_heat(row, col);
 }
 void Random()
 {
@@ -364,7 +299,7 @@ void Random()
     }
     break;
   }
-  heatpan[coordRow][coordCol] = qadd8(heatpan[coordRow][coordCol], random8(160, 255));
+  ledpanel_add_heat(coordRow, coordCol, random8(160, 255));
   Spread(.2);
   if ((coordRow + vec1 == 0) or (coordRow + vec1 == ledHeight - 1))
   {
@@ -386,16 +321,18 @@ void Fire(bool flip)
       // k+2 == ledHeight which is out-of-bounds and invokes UB.
       for (int k = 2; k <= ledHeight - 3; k++)
       {
-        heatpan[k][i] = (heatpan[k + 1][i] + heatpan[k + 2][i] + heatpan[k + 2][i]) / 3;
-        UpdateLedHeat(k, i);
+        uint8_t v = (ledpanel_get_heat(k + 1, i) + ledpanel_get_heat(k + 2, i) + ledpanel_get_heat(k + 2, i)) / 3;
+        ledpanel_set_heat(k, i, v);
+        ledpanel_update_color_from_heat(k, i);
       }
     }
     else
     {
       for (int k = ledHeight - 1; k >= 2; k--)
       {
-        heatpan[k][i] = (heatpan[k - 1][i] + heatpan[k - 2][i] + heatpan[k - 2][i]) / 3;
-        UpdateLedHeat(k, i);
+        uint8_t v = (ledpanel_get_heat(k - 1, i) + ledpanel_get_heat(k - 2, i) + ledpanel_get_heat(k - 2, i)) / 3;
+        ledpanel_set_heat(k, i, v);
+        ledpanel_update_color_from_heat(k, i);
       }
     }
     if (random8() < SPARKING)
@@ -409,8 +346,8 @@ void Fire(bool flip)
       {
         y = random8(3);
       }
-      heatpan[y][i] = qadd8(heatpan[y][i], random8(160, 255));
-      UpdateLedHeat(y, i);
+      ledpanel_add_heat(y, i, random8(160, 255));
+      ledpanel_update_color_from_heat(y, i);
     }
   }
   CoolAll(0.6, 0.2);
@@ -436,7 +373,7 @@ void Floating()
   }
   for (coordCol = 0; coordCol < numColumns; coordCol++)
   {
-    heatpan[coordRow][coordCol] = qadd8(heatpan[coordRow][coordCol], random8(180, 255));
+    ledpanel_add_heat(coordRow, coordCol, random8(180, 255));
     SpreadHeight(0.2);
   }
   CoolAll(0.3, 0);
