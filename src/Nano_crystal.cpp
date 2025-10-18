@@ -5,8 +5,6 @@
 
 // Globals
 bool off = false;
-int vec1 = 1;
-int vec2 = 1;
 
 // pins, chipset, geometry, and defaults are in config.h
 bool nextSwitch = false;
@@ -24,8 +22,7 @@ double FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND; // runtime FPS
 
 // coordinates of current position
 
-int coordRow = 0;
-int coordCol = 0;
+// coord and vec state are owned by effects module now
 
 #include "led_panel.h"
 
@@ -38,16 +35,9 @@ void RunLed();
 void OffAction();
 void SwitchOff();
 void MemUpdate();
-void UpdateLedHeat(int row, int col);
-void Random();
-void Fire(bool flip);
-void Floating();
-void RandomizeTime();
 int SwitchUp(int value, bool up);
-void CoolAll(double max, double min);
-uint8_t wrap(uint8_t num, uint8_t limit);
-void Spread(double factor);
-void SpreadHeight(double factor);
+
+#include "effects.h"
 
 void setup()
 {
@@ -67,6 +57,7 @@ void setup()
   attachInterrupt(0, SwitchOff, CHANGE);
   // colorSchemeNum = EEPROM.read(0);
   // prognum = EEPROM.read(1);
+  effects_init();
   delay(1000);
   Serial.println("------setup done------");
 }
@@ -78,6 +69,9 @@ void loop()
   // ProgramSwap();
   Set();
   RandomizeTime();
+  // apply any FPS delta requested by effects
+  double fps_delta = effects_get_and_clear_fps_delta();
+  FRAMES_PER_SECOND += fps_delta;
   if (!off)
   {
     PalletSet();
@@ -226,186 +220,4 @@ void OffAction()
   // digitalWrite(ONBOARD_LED, HIGH);
 }
 
-// SPARKING: What chance (out of 255) is there that a new spark will be lit?
-// Higher chance = more roaring fire.  Lower chance = more flickery fire.
-// Default 120, suggested range 50-200.
-#define SPARKING 50
-
-void CoolAll(double max, double min)
-{
-  const int COOLING = 100;
-  for (int row = 0; row < ledHeight; row++)
-  {
-    for (int col = 0; col < numColumns; col++)
-    {
-      uint8_t newh = qsub8(ledpanel_get_heat(row, col), random8((int)(COOLING * min), (int)(COOLING * max)));
-      ledpanel_set_heat(row, col, newh);
-      ledpanel_update_color_from_heat(row, col);
-    }
-  }
-}
-uint8_t wrap(uint8_t num, uint8_t limit)
-{
-  if (num >= limit)
-  {
-    num = num % limit;
-  }
-  return num;
-}
-void Spread(double factor)
-{
-  // delegate to led_panel spread helper
-  ledpanel_spread_from(coordRow, coordCol, factor);
-}
-void SpreadHeight(double factor)
-{
-  // delegate to led_panel vertical spread helper
-  ledpanel_spread_height_from(coordRow, coordCol, factor);
-}
-void UpdateLedHeat(int row, int col)
-{
-  // update color from led_panel's heat and palette
-  ledpanel_update_color_from_heat(row, col);
-}
-void Random()
-{
-  int dir = random8(0, 30);
-  switch (dir)
-  {
-  case 0:
-    vec1 = -1;
-    break;
-  case 1:
-    vec1 = 0;
-    break;
-  case 2:
-    vec2 = -1;
-    break;
-  case 3:
-    vec1 = 1;
-    break;
-  case 4:
-    vec2 = 1;
-    break;
-  case 5:
-    vec2 = 0;
-    break;
-
-  default:
-    if (vec1 == vec2 and vec1 == 0)
-    {
-      vec1 = random8(-1, 1);
-      vec2 = random8(-1, 1);
-    }
-    break;
-  }
-  ledpanel_add_heat(coordRow, coordCol, random8(160, 255));
-  Spread(.2);
-  if ((coordRow + vec1 == 0) or (coordRow + vec1 == ledHeight - 1))
-  {
-    vec1 = -vec1;
-  }
-  coordRow = wrap(coordRow + vec1, ledHeight);
-  coordCol = wrap(coordCol + vec2, numColumns);
-  CoolAll(0.5, 0.1);
-}
-void Fire(bool flip)
-{
-
-  for (int i = 0; i < numColumns; i++)
-  {
-    if (flip)
-    {
-      // Ensure k+2 stays within bounds: valid indices are 0..ledHeight-1
-      // so k must be <= ledHeight-3. Previously the loop allowed k such that
-      // k+2 == ledHeight which is out-of-bounds and invokes UB.
-      for (int k = 2; k <= ledHeight - 3; k++)
-      {
-        uint8_t v = (ledpanel_get_heat(k + 1, i) + ledpanel_get_heat(k + 2, i) + ledpanel_get_heat(k + 2, i)) / 3;
-        ledpanel_set_heat(k, i, v);
-        ledpanel_update_color_from_heat(k, i);
-      }
-    }
-    else
-    {
-      for (int k = ledHeight - 1; k >= 2; k--)
-      {
-        uint8_t v = (ledpanel_get_heat(k - 1, i) + ledpanel_get_heat(k - 2, i) + ledpanel_get_heat(k - 2, i)) / 3;
-        ledpanel_set_heat(k, i, v);
-        ledpanel_update_color_from_heat(k, i);
-      }
-    }
-    if (random8() < SPARKING)
-    {
-      int y;
-      if (flip)
-      {
-        y = random8(ledHeight - 4, ledHeight);
-      }
-      else
-      {
-        y = random8(3);
-      }
-      ledpanel_add_heat(y, i, random8(160, 255));
-      ledpanel_update_color_from_heat(y, i);
-    }
-  }
-  CoolAll(0.6, 0.2);
-}
-void Floating()
-{
-  int dir = random8(0, 12);
-  switch (dir)
-  {
-  case 0 ... 2:
-    vec1 = -1;
-    break;
-  case 3 ... 5:
-    vec1 = 1;
-    break;
-  case 6:
-    vec1 = 0;
-    break;
-  case 7:
-    FRAMES_PER_SECOND--;
-  default:
-    break;
-  }
-  for (coordCol = 0; coordCol < numColumns; coordCol++)
-  {
-    ledpanel_add_heat(coordRow, coordCol, random8(180, 255));
-    SpreadHeight(0.2);
-  }
-  CoolAll(0.3, 0);
-  if ((coordRow + vec1 == 0) or (coordRow + vec1 == ledHeight - 1))
-  {
-    vec1 = -vec1;
-  }
-  coordRow = wrap(coordRow + vec1, ledHeight);
-}
-void RandomizeTime()
-{
-  int change = random8(0, 30);
-  switch (change)
-  {
-  case 0:
-    FRAMES_PER_SECOND -= 0.5;
-    break;
-  case 1:
-    FRAMES_PER_SECOND -= 1;
-    break;
-  case 2 ... 4:
-    FRAMES_PER_SECOND += 0.5;
-    break;
-  default:
-    break;
-  }
-  if (FRAMES_PER_SECOND < Base_FRAMES_PER_SECOND - 3)
-  {
-    FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND - 3;
-  }
-  if (FRAMES_PER_SECOND > Base_FRAMES_PER_SECOND + 2)
-  {
-    FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND + 2;
-  }
-}
+// Effect implementations moved to src/effects.cpp
