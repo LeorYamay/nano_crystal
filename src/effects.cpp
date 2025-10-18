@@ -202,3 +202,63 @@ void RandomizeTime()
     break;
   }
 }
+
+// Spiral effect implementation ------------------------------------------------
+// 8x8 bitmap frames encoded as 64-bit little-endian rows (LSB is column 0)
+const uint64_t IMAGES[] = {0x0204080000102040ULL, 0x0408100000081020ULL, 0x0080402004020100ULL, 0x0000804422010000ULL};
+const int IMAGES_LEN = sizeof(IMAGES) / sizeof(IMAGES[0]);
+
+static void SpiralImpl(bool mirrored)
+{
+  static int frame = 0;
+  static int ticks = 0; // advance frame every N calls
+  const int TICKS_PER_FRAME = 6; // tweak this to slow/fast animation
+
+  // cool the whole panel mildly each call
+  ledpanel_cool_all(0.35, 0.05);
+
+  // heat bits from the current frame
+  uint64_t bits = IMAGES[frame % IMAGES_LEN];
+  for (int r = 0; r < ledHeight; ++r)
+  {
+    for (int c = 0; c < numColumns; ++c)
+    {
+      int bitIndex = r * numColumns + c; // row-major bit index
+      bool set = (bits >> bitIndex) & 1ULL;
+      if (set)
+      {
+        ledpanel_add_heat(r, c, random8(160, 255));
+        ledpanel_update_color_from_heat(r, c);
+        if (mirrored)
+        {
+          int mr = ledHeight - 1 - r;
+          int mc = numColumns - 1 - c;
+          if (mr != r || mc != c)
+          {
+            ledpanel_add_heat(mr, mc, random8(160, 255));
+            ledpanel_update_color_from_heat(mr, mc);
+          }
+        }
+      }
+    }
+  }
+
+  // advance frame after ticks
+  ticks++;
+  if (ticks >= TICKS_PER_FRAME)
+  {
+    ticks = 0;
+    frame = (frame + 1) % IMAGES_LEN;
+  }
+}
+
+void Spiral()
+{
+  SpiralImpl(false);
+}
+
+void SpiralMirrored()
+{
+  SpiralImpl(true);
+}
+

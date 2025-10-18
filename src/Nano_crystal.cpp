@@ -171,6 +171,12 @@ void RunLed()
   case 3:
     Fire(true);
     break;
+  case 4:
+    Spiral();
+    break;
+  case 5:
+    SpiralMirrored();
+    break;
   default:
     break;
   }
