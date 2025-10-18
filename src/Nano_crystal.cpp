@@ -28,29 +28,29 @@ int coordRow = 0;
 int coordCol = 0;
 
 CRGB leds[NUM_LEDS];
-CRGB &posleds(int row, int col)
+inline CRGB &posleds(int row, int col)
 {
-  // maps single panel to leds
-  bool even = (col & 1) == 0;
-  int index = 0;
+  // maps 2D (row,col) into the 1D leds[] array for serpentine wiring
+  // ensure coordinates are in-bounds (clamp) to avoid UB
+  if (row < 0)
+    row = 0;
+  else if (row >= ledHeight)
+    row = ledHeight - 1;
 
-  if (even)
-  {
-    index = row + ledHeight * col;
-  }
-  else
-  {
-    index = ledHeight * (col + 1) - row - 1;
-  }
+  if (col < 0)
+    col = 0;
+  else if (col >= numColumns)
+    col = numColumns - 1;
 
-  if (index > NUM_LEDS)
-  {
-    index = NUM_LEDS;
-  }
+  // even columns go top->bottom, odd columns bottom->top
+  int index = col * ledHeight + (((col & 1) == 0) ? row : (ledHeight - 1 - row));
+
+  // index must be within 0 .. NUM_LEDS-1
   if (index < 0)
-  {
     index = 0;
-  };
+  else if (index >= NUM_LEDS)
+    index = NUM_LEDS - 1;
+
   return leds[index];
 }
 
