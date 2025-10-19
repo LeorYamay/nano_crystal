@@ -9,7 +9,7 @@ bool off = false;
 // pins, chipset, geometry, and defaults are in config.h
 bool nextSwitch = false;
 int setNum = -1;
-int prognum = 3;
+int prognum = 4;
 bool prevSwitch = false;
 int colorSchemeNum = 1;
 
@@ -29,8 +29,10 @@ double FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND; // runtime FPS
 // led storage, heatpan and palette now belong to led_panel module
 
 // Forward declarations
-void Set();
+// void Set();
 void PalletSet();
+void PalletSwap();
+void ProgramSwap();
 void RunLed();
 void OffAction();
 void SwitchOff();
@@ -38,6 +40,7 @@ void MemUpdate();
 int SwitchUp(int value, bool up);
 
 #include "effects.h"
+#include "palettes.h"
 
 void setup()
 {
@@ -46,8 +49,8 @@ void setup()
   off = false;
   pinMode(POWER_ON, OUTPUT);
   pinMode(POWER_SWITCH, INPUT_PULLUP);
-  pinMode(PREV, INPUT_PULLUP);
-  pinMode(NEXT, INPUT_PULLUP);
+  pinMode(PROGRAM_BUTTON, INPUT_PULLUP);
+  pinMode(COLOR_BUTTON, INPUT_PULLUP);
   // pinMode(ONBOARD_LED, OUTPUT);
   digitalWrite(POWER_ON, HIGH);
   // digitalWrite(ONBOARD_LED, HIGH);
@@ -65,9 +68,10 @@ void setup()
 void loop()
 {
   random16_add_entropy(random());
-  // PalletSwap();
-  // ProgramSwap();
-  Set();
+  // Comment out preset Set() behavior and restore independent controls
+  // Set();
+  PalletSwap();
+  ProgramSwap();
   RandomizeTime();
   // apply any FPS delta requested by effects
   double fps_delta = effects_get_and_clear_fps_delta();
@@ -107,53 +111,53 @@ int SwitchUp(int value, bool up)
   else
     return temp;
 }
-void Set()
-{
-  if (!digitalRead(NEXT))
-  {
-    if (!nextSwitch)
-    {
-      nextSwitch = true;
-      setNum = SwitchUp(setNum, true);
-    }
-  }
-  else
-  {
-    nextSwitch = false;
-  }
-  if (!digitalRead(PREV))
-  {
-    if (!prevSwitch)
-    {
-      prevSwitch = true;
-      setNum = SwitchUp(setNum, false);
-    }
-  }
-  else
-  {
-    prevSwitch = false;
-  }
-  switch (setNum)
-  {
-  case -1:
-    prognum = 3;
-    colorSchemeNum = 1;
-    break;
-  case 0:
-    prognum = 3;
-    colorSchemeNum = 2;
-    break;
-  case 1:
-    prognum = 1;
-    colorSchemeNum = 2;
-    break;
-  default:
-    prognum = 0;
-    colorSchemeNum = 1;
-    setNum = 0;
-    break;
-  }
-}
+// void Set()
+// {
+//   if (!digitalRead(NEXT))
+//   {
+//     if (!nextSwitch)
+//     {
+//       nextSwitch = true;
+//       setNum = SwitchUp(setNum, true);
+//     }
+//   }
+//   else
+//   {
+//     nextSwitch = false;
+//   }
+//   if (!digitalRead(PREV))
+//   {
+//     if (!prevSwitch)
+//     {
+//       prevSwitch = true;
+//       setNum = SwitchUp(setNum, false);
+//     }
+//   }
+//   else
+//   {
+//     prevSwitch = false;
+//   }
+//   switch (setNum)
+//   {
+//   case -1:
+//     prognum = 3;
+//     colorSchemeNum = 1;
+//     break;
+//   case 0:
+//     prognum = 3;
+//     colorSchemeNum = 2;
+//     break;
+//   case 1:
+//     prognum = 1;
+//     colorSchemeNum = 2;
+//     break;
+//   default:
+//     prognum = 0;
+//     colorSchemeNum = 1;
+//     setNum = 0;
+//     break;
+//   }
+// }
 
 void RunLed()
 {
@@ -184,22 +188,50 @@ void RunLed()
 
 void PalletSet()
 {
-  switch (colorSchemeNum)
+  // Use the centralized palette array. Clamp colorSchemeNum to valid range.
+  if (colorSchemeNum < 0)
+    colorSchemeNum = 0;
+  if (colorSchemeNum >= (int)PALETTES_COUNT)
+    colorSchemeNum = PALETTES_COUNT - 1;
+  ledpanel_set_palette(PALETTES[colorSchemeNum]);
+}
+// Advance palette (color) when COLOR_BUTTON is pressed; wrap 0..MAX_PALETTES
+void PalletSwap()
+{
+  static bool colorPressed = false;
+  if (!digitalRead(COLOR_BUTTON))
   {
-  case 0:
-    ledpanel_set_palette(CRGBPalette16(CRGB::Black, CRGB::Blue, CRGB::Aqua, CRGB::White));
-    break;
-  case 1:
-    ledpanel_set_palette(CRGBPalette16(CRGB::Black, CRGB::Red, CRGB::OrangeRed, CRGB::Orange));
-    break;
-  case 2:
-    ledpanel_set_palette(CRGBPalette16(CRGB::Black, CRGB::DarkGreen, CRGB::LawnGreen, CRGB::GreenYellow));
-    break;
-  case 3:
-    ledpanel_set_palette(CRGBPalette16(CRGB::Black, CRGB::Purple, CRGB::Purple, CRGB::MediumPurple));
-    break;
-  default:
-    break;
+    if (!colorPressed)
+    {
+      colorPressed = true;
+      colorSchemeNum++;
+      if (colorSchemeNum >= (int)PALETTES_COUNT)
+        colorSchemeNum = 0;
+    }
+  }
+  else
+  {
+    colorPressed = false;
+  }
+}
+
+// Advance program when PROGRAM_BUTTON is pressed; wrap 0..MAX_PROGRAMS
+void ProgramSwap()
+{
+  static bool progPressed = false;
+  if (!digitalRead(PROGRAM_BUTTON))
+  {
+    if (!progPressed)
+    {
+      progPressed = true;
+      prognum++;
+      if (prognum > MAX_PROGRAMS)
+        prognum = 0;
+    }
+  }
+  else
+  {
+    progPressed = false;
   }
 }
 void SwitchOff()

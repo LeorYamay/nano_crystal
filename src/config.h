@@ -8,8 +8,8 @@
 #define ONBOARD_LED 13
 #define POWER_ON 7
 #define POWER_SWITCH 2
-#define PREV 6
-#define NEXT 5
+#define PROGRAM_BUTTON 6
+#define COLOR_BUTTON 5
 #define LED_PIN A1
 #define COLOR_ORDER GRB
 #define CHIPSET WS2813
@@ -25,6 +25,9 @@ static const int Base_FRAMES_PER_SECOND = 9;
 
 // Fire effect tuning
 static const uint8_t SPARKING = 50; // chance out of 255
+
+// Centralized program count (update when adding/removing programs)
+static const int MAX_PROGRAMS = 5;
 
 #endif // CONFIG_H
 
