@@ -206,50 +206,54 @@ void RandomizeTime()
 // Spiral effect implementation ------------------------------------------------
 // 8x8 bitmap frames encoded as 64-bit little-endian rows (LSB is column 0)
 const uint64_t IMAGES[] = {
-  0x0204080000102040ULL,
-  0x0408100000081020ULL,
-  0x2020200000040404ULL,
-  0x0080402004020100ULL,
-  0x0000804422010000ULL,
-  0x0000070000e00000ULL
+  0x0006090000906000,
+  0x000e100000087000,
+  0x0c10200000040830,
+  0x2040402004020204,
+  0x0040404422020200,
+  0x0000848241210000
 };
 const int IMAGES_LEN = sizeof(IMAGES) / sizeof(IMAGES[0]);
 
 static void SpiralImpl(bool mirrored)
 {
   static int frame = 0;
-  static int ticks = 0; // advance frame every N calls
-  const int TICKS_PER_FRAME = 6; // tweak this to slow/fast animation
-
+  static int ticks = 0;          // advance frame every N calls
+  const int TICKS_PER_FRAME = 4; // tweak this to slow/fast animation
+  // requested_fps_delta = 1;
   // cool the whole panel mildly each call
   ledpanel_cool_all(0.35, 0.05);
-
-  // heat bits from the current frame
-  uint64_t bits = IMAGES[frame % IMAGES_LEN];
-  for (int r = 0; r < ledHeight; ++r)
+  if (ticks <= 1)
   {
-    for (int c = 0; c < numColumns; ++c)
+    // heat bits from the current frame
+    uint64_t bits = IMAGES[frame % IMAGES_LEN];
+    for (int r = 0; r < ledHeight; ++r)
     {
-      int bitIndex = r * numColumns + c; // row-major bit index
-      bool set = (bits >> bitIndex) & 1ULL;
-      if (set)
+      for (int c = 0; c < numColumns; ++c)
       {
-        ledpanel_add_heat(r, c, random8(160, 255));
-        ledpanel_update_color_from_heat(r, c);
-        if (mirrored)
+        int bitIndex = r * numColumns + c; // row-major bit index
+        bool set = (bits >> bitIndex) & 1ULL;
+        if (set)
         {
-          int mr = ledHeight - 1 - r;
-          int mc = numColumns - 1 - c;
-          if (mr != r || mc != c)
+          if (mirrored)
           {
-            ledpanel_add_heat(mr, mc, random8(160, 255));
-            ledpanel_update_color_from_heat(mr, mc);
+            int mr = ledHeight - 1 - r;
+            int mc = numColumns - 1 - c;
+            if (mr != r || mc != c)
+            {
+              ledpanel_add_heat(mr, mc, random8(70, 160));
+              ledpanel_update_color_from_heat(mr, mc);
+            }
+          }
+          else
+          {
+            ledpanel_add_heat(r, c, random8(70, 160));
+            ledpanel_update_color_from_heat(r, c);
           }
         }
       }
     }
   }
-
   // advance frame after ticks
   ticks++;
   if (ticks >= TICKS_PER_FRAME)
@@ -268,4 +272,3 @@ void SpiralMirrored()
 {
   SpiralImpl(true);
 }
-

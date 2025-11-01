@@ -14,7 +14,7 @@ bool prevSwitch = false;
 int colorSchemeNum = 1;
 
 int BRIGHTNESS = DEFAULT_BRIGHTNESS; // runtime brightness (can be changed)
-double FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND; // runtime FPS
+double FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND*3.5; // runtime FPS
 
 // bool gReverseDirection = false;
 
@@ -76,6 +76,8 @@ void loop()
   // apply any FPS delta requested by effects
   double fps_delta = effects_get_and_clear_fps_delta();
   FRAMES_PER_SECOND += fps_delta;
+  // PalletSet();
+  //   RunLed();
   if (!off)
   {
     PalletSet();
