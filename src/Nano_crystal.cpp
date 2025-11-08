@@ -57,7 +57,7 @@ void setup()
 
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
-  attachInterrupt(0, SwitchOff, CHANGE);
+  // attachInterrupt(0, SwitchOff, CHANGE);
   // colorSchemeNum = EEPROM.read(0);
   // prognum = EEPROM.read(1);
   effects_init();

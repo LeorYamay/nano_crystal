@@ -261,6 +261,7 @@ static void SpiralImpl(bool mirrored)
     ticks = 0;
     frame = (frame + 1) % IMAGES_LEN;
   }
+  RandomizeTime();
 }
 
 void Spiral()
