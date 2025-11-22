@@ -2,6 +2,10 @@
 #include <FastLED.h>
 #include <EEPROM.h>
 
+// Access runtime FPS globals defined in Nano_crystal.cpp so effects can
+// bias timing changes relative to the configured base FPS.
+extern double FRAMES_PER_SECOND;
+
 // local state used by effects
 static int coordRow = 0;
 static int coordCol = 0;
@@ -186,18 +190,55 @@ void Floating()
 
 void RandomizeTime()
 {
-  int change = random8(0, 30);
-  switch (change)
-  {
-  case 0 ... 1:
-    requested_fps_delta -= 1;
-    break;
+  // Determine the current effective rate (what will be after pending deltas)
+  double effective = FRAMES_PER_SECOND + requested_fps_delta;
+  double base = Base_FRAMES_PER_SECOND;
 
-  case 2 ... 4:
-    requested_fps_delta += 1;
-    break;
-  default:
-    break;
+  // Relative difference from base (signed). e.g. 0.5 => 50% above base
+  double rel = 0.0;
+  if (base > 0.0)
+    rel = (effective - base) / base;
+  double absrel = fabs(rel);
+
+  // Non-linear bias: cube the distance so only larger deviations strongly
+  // influence a pull back toward the base. Clamp to [0,1] for stability.
+  if (absrel > 1.0)
+    absrel = 1.0;
+  double p_toward = pow(absrel, 3.0);
+
+  // Give a small baseline chance to nudge even when close to base and
+  // scale the strength slightly so behavior is gentle.
+  p_toward = p_toward * 0.9 + 0.05; // now in approx [0.05, 0.95]
+
+  // Hard cap: if at or above 2x base, always move back toward base
+  if (effective >= 2.0 * base)
+  {
+    requested_fps_delta -= 1;
+    return;
+  }
+
+  // Random roll to decide whether to move toward base (probability p_toward)
+  int roll = random8(0, 100); // 0..99
+  if (roll < (int)(p_toward * 100.0))
+  {
+    // Move toward the base
+    if (effective > base)
+      requested_fps_delta -= 1;
+    else if (effective < base)
+      requested_fps_delta += 1;
+  }
+  else
+  {
+    // Small chance to move away from base (keeps animation lively).
+    // Make this much less likely than moving toward the base.
+    int awayRoll = random8(0, 100);
+    if (awayRoll < 10)
+    {
+      if (effective > base)
+        requested_fps_delta += 1;
+      else if (effective < base)
+        requested_fps_delta -= 1;
+    }
   }
 }
 
@@ -291,53 +332,40 @@ const uint64_t PULSES_IMAGES[] = {
 };
 const int PULSES_LEN = sizeof(PULSES_IMAGES) / sizeof(PULSES_IMAGES[0]);
 
+// Playback sequence: 0,1,2,3,4,2,3,0
+// Frame amplitudes (0 = idle, 4 = full pulse)
+static const int PULSES_SEQ[] = {
+    0, 2, 4, 1, 0,    // First beat
+    2, 3, 1, 0       // Second smaller beat
+};
+
+static const int PULSES_SEQ_LEN = sizeof(PULSES_SEQ) / sizeof(PULSES_SEQ[0]);
+
+// Duration per step in ticks
+static int PULSES_TICKS[PULSES_SEQ_LEN] = {
+  3,  // 0 → idle base
+  3,  // rise
+  4,  // peak
+  2,  // fall (don't drop directly to 0)
+    7, // short pause before second beat
+
+    3,  // rise
+    4,  // smaller peak
+    3,  // fall
+    28  // long rest before repeating
+};
+
+
 static void PulsesImpl()
 {
-  static int frame = 0;
-  static int ticks = 0;
-  static int dir = 1;               // playback direction: 1 forward, -1 reverse
-  static int pause_counter = 0;     // when >0 we are pausing on an end frame
-  const int TICKS_PER_FRAME = 5;    // frames per animation step
-  const int PULSES_PAUSE_TICKS = 3; // how long to pause on final frame (editable)
+  static int seqIndex = 0;    // which step in the sequence
+  static int tickCounter = 0; // ticks spent on current step
+  int img = PULSES_SEQ[seqIndex];
 
-  // Gentle cool each call
-  ledpanel_cool_all(0.4, 0.05);
-
-  // If we're currently pausing at an end frame, keep rendering that frame
-  // so it remains visible, decrement the pause counter and when it
-  // expires flip the direction to play in reverse.
-  if (pause_counter > 0)
+  // Render the frame only on the first tick of the step (add heat once)
+  if (tickCounter == 0)
   {
-    uint64_t bits = PULSES_IMAGES[frame % PULSES_LEN];
-    for (int r = 0; r < ledHeight; ++r)
-    {
-      for (int c = 0; c < numColumns; ++c)
-      {
-        int bitIndex = r * numColumns + c;
-        bool set = (bits >> bitIndex) & 1ULL;
-        if (set)
-        {
-          // re-apply heat while paused so the frame stays bright
-          ledpanel_add_heat(r, c, random8(100, 200));
-          ledpanel_update_color_from_heat(r, c);
-        }
-      }
-    }
-    --pause_counter;
-    if (pause_counter == 0)
-    {
-      dir = -dir; // reverse playback when pause finishes
-      ticks = 0;
-    }
-    RandomizeTime();
-    return;
-  }
-
-  // Normal frame rendering (only add heat on the first tick to avoid
-  // excessive accumulation).
-  if (ticks <= 1)
-  {
-    uint64_t bits = PULSES_IMAGES[frame % PULSES_LEN];
+    uint64_t bits = PULSES_IMAGES[img % PULSES_LEN];
     for (int r = 0; r < ledHeight; ++r)
     {
       for (int c = 0; c < numColumns; ++c)
@@ -353,23 +381,17 @@ static void PulsesImpl()
     }
   }
 
-  ticks++;
-  if (ticks >= TICKS_PER_FRAME)
+  // Gentle cooling every call (including the first after adding heat)
+  ledpanel_cool_all(0.3, 0.05);
+
+  // advance ticks for this sequence step
+  tickCounter++;
+  if (tickCounter >= PULSES_TICKS[seqIndex])
   {
-    ticks = 0;
-    frame += dir;
-    // if we advance past the last frame, clamp to last and pause
-    if (frame >= PULSES_LEN)
-    {
-      frame = PULSES_LEN - 1;
-      pause_counter = PULSES_PAUSE_TICKS;
-    }
-    // if we advance before the first frame, clamp and resume forward
-    else if (frame < 0)
-    {
-      frame = 0;
-      dir = 1;
-    }
+    tickCounter = 0;
+    seqIndex++;
+    if (seqIndex >= PULSES_SEQ_LEN)
+      seqIndex = 0;
   }
 
   RandomizeTime();

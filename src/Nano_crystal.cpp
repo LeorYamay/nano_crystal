@@ -104,6 +104,12 @@ void loop()
   // apply any FPS delta requested by effects
   double fps_delta = effects_get_and_clear_fps_delta();
   FRAMES_PER_SECOND += fps_delta;
+  // Enforce a maximum FPS = 2 * the base FPS
+  {
+    double max_fps = Base_FRAMES_PER_SECOND * 2.0;
+    if (FRAMES_PER_SECOND > max_fps)
+      FRAMES_PER_SECOND = max_fps;
+  }
   // Enforce a minimum FPS = half the base FPS
   {
     double min_fps = Base_FRAMES_PER_SECOND / 2.0;
