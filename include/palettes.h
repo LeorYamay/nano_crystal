@@ -15,4 +15,13 @@ static const CRGBPalette16 PALETTES[] = {
 // Number of palettes available
 #define PALETTES_COUNT (sizeof(PALETTES) / sizeof(PALETTES[0]))
 
+// Per-palette brightness modifiers (added to DEFAULT_BRIGHTNESS)
+// index 1 -> 0, others -> -25
+static const int PALETTE_BRIGHTNESS_MOD[] = {
+    -55, // palette 0
+    0,   // palette 1 (no modifier)
+    -55, // palette 2
+    -55  // palette 3
+};
+
 #endif // PALETTES_H

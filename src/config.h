@@ -21,7 +21,9 @@ static const int NUM_LEDS = numColumns * ledHeight;
 
 // Brightness & timing defaults
 static const int DEFAULT_BRIGHTNESS = 255;
-static const int Base_FRAMES_PER_SECOND = 9;
+// Base frames per second. Increase by 3.5x from the previous value.
+// Use a double so fractional FPS is supported.
+static const double Base_FRAMES_PER_SECOND = 9.0 * 3.5; // 31.5
 
 // Fire effect tuning
 static const uint8_t SPARKING = 50; // chance out of 255

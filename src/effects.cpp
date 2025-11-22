@@ -189,14 +189,12 @@ void RandomizeTime()
   int change = random8(0, 30);
   switch (change)
   {
-  case 0:
-    requested_fps_delta -= 0.5;
+  case 0 ... 1:
+    requested_fps_delta -= 1;
     break;
-  case 1:
-    requested_fps_delta -= 1.0;
-    break;
+
   case 2 ... 4:
-    requested_fps_delta += 0.5;
+    requested_fps_delta += 1;
     break;
   default:
     break;
@@ -238,12 +236,9 @@ static void SpiralImpl(bool mirrored)
           if (mirrored)
           {
             int mr = ledHeight - 1 - r;
-            int mc = numColumns - 1 - c;
-            if (mr != r || mc != c)
-            {
-              ledpanel_add_heat(mr, mc, random8(70, 160));
-              ledpanel_update_color_from_heat(mr, mc);
-            }
+            // int mc = numColumns - 1 - c;
+            ledpanel_add_heat(mr, c, random8(70, 160));
+            ledpanel_update_color_from_heat(mr, c);
           }
           else
           {
@@ -272,4 +267,115 @@ void Spiral()
 void SpiralMirrored()
 {
   SpiralImpl(true);
+}
+
+// Fire wrappers to provide no-arg functions for program array
+void FireOff()
+{
+  Fire(false);
+}
+
+void FireOn()
+{
+  Fire(true);
+}
+
+// Pulses effect ------------------------------------------------------------
+// Uses the provided 8x8 frames encoded as 64-bit rows
+const uint64_t PULSES_IMAGES[] = {
+  0x0000000000000000ULL,
+  0x0000001818000000ULL,
+  0x0000182424180000ULL,
+  0x0018244242241800ULL,
+  0x3c4281818181423cULL,
+};
+const int PULSES_LEN = sizeof(PULSES_IMAGES) / sizeof(PULSES_IMAGES[0]);
+
+static void PulsesImpl()
+{
+  static int frame = 0;
+  static int ticks = 0;
+  static int dir = 1;               // playback direction: 1 forward, -1 reverse
+  static int pause_counter = 0;     // when >0 we are pausing on an end frame
+  const int TICKS_PER_FRAME = 5;    // frames per animation step
+  const int PULSES_PAUSE_TICKS = 3; // how long to pause on final frame (editable)
+
+  // Gentle cool each call
+  ledpanel_cool_all(0.4, 0.05);
+
+  // If we're currently pausing at an end frame, keep rendering that frame
+  // so it remains visible, decrement the pause counter and when it
+  // expires flip the direction to play in reverse.
+  if (pause_counter > 0)
+  {
+    uint64_t bits = PULSES_IMAGES[frame % PULSES_LEN];
+    for (int r = 0; r < ledHeight; ++r)
+    {
+      for (int c = 0; c < numColumns; ++c)
+      {
+        int bitIndex = r * numColumns + c;
+        bool set = (bits >> bitIndex) & 1ULL;
+        if (set)
+        {
+          // re-apply heat while paused so the frame stays bright
+          ledpanel_add_heat(r, c, random8(100, 200));
+          ledpanel_update_color_from_heat(r, c);
+        }
+      }
+    }
+    --pause_counter;
+    if (pause_counter == 0)
+    {
+      dir = -dir; // reverse playback when pause finishes
+      ticks = 0;
+    }
+    RandomizeTime();
+    return;
+  }
+
+  // Normal frame rendering (only add heat on the first tick to avoid
+  // excessive accumulation).
+  if (ticks <= 1)
+  {
+    uint64_t bits = PULSES_IMAGES[frame % PULSES_LEN];
+    for (int r = 0; r < ledHeight; ++r)
+    {
+      for (int c = 0; c < numColumns; ++c)
+      {
+        int bitIndex = r * numColumns + c;
+        bool set = (bits >> bitIndex) & 1ULL;
+        if (set)
+        {
+          ledpanel_add_heat(r, c, random8(120, 220));
+          ledpanel_update_color_from_heat(r, c);
+        }
+      }
+    }
+  }
+
+  ticks++;
+  if (ticks >= TICKS_PER_FRAME)
+  {
+    ticks = 0;
+    frame += dir;
+    // if we advance past the last frame, clamp to last and pause
+    if (frame >= PULSES_LEN)
+    {
+      frame = PULSES_LEN - 1;
+      pause_counter = PULSES_PAUSE_TICKS;
+    }
+    // if we advance before the first frame, clamp and resume forward
+    else if (frame < 0)
+    {
+      frame = 0;
+      dir = 1;
+    }
+  }
+
+  RandomizeTime();
+}
+
+void Pulses()
+{
+  PulsesImpl();
 }

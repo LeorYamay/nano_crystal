@@ -14,7 +14,7 @@ bool prevSwitch = false;
 int colorSchemeNum = 1;
 
 int BRIGHTNESS = DEFAULT_BRIGHTNESS; // runtime brightness (can be changed)
-double FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND*3.5; // runtime FPS
+double FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND; // runtime FPS — start at base
 
 // bool gReverseDirection = false;
 
@@ -41,6 +41,7 @@ int SwitchUp(int value, bool up);
 
 #include "effects.h"
 #include "palettes.h"
+#include "programs.h"
 
 void setup()
 {
@@ -57,10 +58,37 @@ void setup()
 
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
-  // attachInterrupt(0, SwitchOff, CHANGE);
+  attachInterrupt(0, SwitchOff, CHANGE);
   // colorSchemeNum = EEPROM.read(0);
   // prognum = EEPROM.read(1);
   effects_init();
+  // Seed the PRNG with a floating analog pin for entropy and add to
+  // the 16-bit random pool. This helps ensure different runs are different.
+  int seed = analogRead(A7);
+  randomSeed(seed);
+  random16_add_entropy((uint16_t)(seed ^ millis()));
+  colorSchemeNum = random8(0, (uint8_t)PALETTES_COUNT);
+  Serial.print("Initial random seed (A7): ");
+  Serial.println(seed);
+  Serial.print("Initial random palette number: ");
+  Serial.println(colorSchemeNum);
+  // choose among PRG_SPIRAL, PRG_SPIRAL_MIRRORED, PRG_PULSES
+  {
+    uint8_t choice = random8(0, 3);
+    switch (choice)
+    {
+    case 0:
+      prognum = PRG_SPIRAL;
+      break;
+    case 1:
+      prognum = PRG_SPIRAL_MIRRORED;
+      break;
+    default:
+      prognum = PRG_PULSES;
+      break;
+    }
+    Serial.println("Initial random program number: " + String(prognum) );
+  }
   delay(1000);
   Serial.println("------setup done------");
 }
@@ -76,6 +104,12 @@ void loop()
   // apply any FPS delta requested by effects
   double fps_delta = effects_get_and_clear_fps_delta();
   FRAMES_PER_SECOND += fps_delta;
+  // Enforce a minimum FPS = half the base FPS
+  {
+    double min_fps = Base_FRAMES_PER_SECOND / 2.0;
+    if (FRAMES_PER_SECOND < min_fps)
+      FRAMES_PER_SECOND = min_fps;
+  }
   // PalletSet();
   //   RunLed();
   if (!off)
@@ -163,29 +197,12 @@ int SwitchUp(int value, bool up)
 
 void RunLed()
 {
-  switch (prognum)
-  {
-  case 0:
-    Fire(false);
-    break;
-  case 1:
-    Random();
-    break;
-  case 2:
-    Floating();
-    break;
-  case 3:
-    Fire(true);
-    break;
-  case 4:
-    Spiral();
-    break;
-  case 5:
-    SpiralMirrored();
-    break;
-  default:
-    break;
-  }
+  // Bound-check prognum and call the program function pointer
+  if (prognum < 0)
+    prognum = 0;
+  if (prognum >= (int)PROGRAMS_COUNT)
+    prognum = PROGRAMS_COUNT - 1;
+  PROGRAMS[prognum]();
 }
 
 void PalletSet()
@@ -196,6 +213,20 @@ void PalletSet()
   if (colorSchemeNum >= (int)PALETTES_COUNT)
     colorSchemeNum = PALETTES_COUNT - 1;
   ledpanel_set_palette(PALETTES[colorSchemeNum]);
+
+  // Apply palette-specific brightness modifier (relative to DEFAULT_BRIGHTNESS)
+  int mod = 0;
+  if (colorSchemeNum >= 0 && colorSchemeNum < (int)PALETTES_COUNT)
+  {
+    mod = PALETTE_BRIGHTNESS_MOD[colorSchemeNum];
+  }
+  int newBrightness = DEFAULT_BRIGHTNESS + mod;
+  if (newBrightness < 0)
+    newBrightness = 0;
+  if (newBrightness > 255)
+    newBrightness = 255;
+  BRIGHTNESS = newBrightness;
+  FastLED.setBrightness(BRIGHTNESS);
 }
 // Advance palette (color) when COLOR_BUTTON is pressed; wrap 0..MAX_PALETTES
 void PalletSwap()
