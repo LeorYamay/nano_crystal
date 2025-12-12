@@ -16,6 +16,12 @@ int colorSchemeNum = 1;
 int BRIGHTNESS = DEFAULT_BRIGHTNESS; // runtime brightness (can be changed)
 double FRAMES_PER_SECOND = Base_FRAMES_PER_SECOND; // runtime FPS — start at base
 
+// Smoke relay control state
+static unsigned long smoke_relay_start_time = 0;   // when current state began
+static bool smoke_relay_is_on = true;               // true = HIGH, false = LOW
+static int smoke_relay_cycle_count = 0;             // current cycle (0 to SMOKE_RELAY_CYCLES-1)
+static bool smoke_relay_active = true;              // whether the relay cycle is running
+
 // bool gReverseDirection = false;
 
 // numColumns, ledHeight, NUM_LEDS are in config.h
@@ -52,13 +58,16 @@ void setup()
   pinMode(POWER_SWITCH, INPUT_PULLUP);
   pinMode(PROGRAM_BUTTON, INPUT_PULLUP);
   pinMode(COLOR_BUTTON, INPUT_PULLUP);
+  pinMode(SMOKE_RELAY, OUTPUT);
   // pinMode(ONBOARD_LED, OUTPUT);
-  digitalWrite(POWER_ON, HIGH);
+  delay(1000);
+  digitalWrite(SMOKE_RELAY, HIGH); // start relay ON
+  smoke_relay_start_time = millis();
+  // digitalWrite(POWER_ON, HIGH);
   // digitalWrite(ONBOARD_LED, HIGH);
-
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
-  attachInterrupt(0, SwitchOff, CHANGE);
+  // attachInterrupt(0, SwitchOff, CHANGE);
   // colorSchemeNum = EEPROM.read(0);
   // prognum = EEPROM.read(1);
   effects_init();
@@ -68,6 +77,7 @@ void setup()
   randomSeed(seed);
   random16_add_entropy((uint16_t)(seed ^ millis()));
   colorSchemeNum = random8(0, (uint8_t)PALETTES_COUNT);
+  // colorSchemeNum = 1;
   Serial.print("Initial random seed (A7): ");
   Serial.println(seed);
   Serial.print("Initial random palette number: ");
@@ -89,7 +99,7 @@ void setup()
     }
     Serial.println("Initial random program number: " + String(prognum) );
   }
-  delay(1000);
+  
   Serial.println("------setup done------");
 }
 
@@ -115,6 +125,43 @@ void loop()
     double min_fps = Base_FRAMES_PER_SECOND / 2.0;
     if (FRAMES_PER_SECOND < min_fps)
       FRAMES_PER_SECOND = min_fps;
+  }
+  // Control smoke relay: alternate HIGH/LOW in cycles
+  if (smoke_relay_active)
+  {
+    unsigned long elapsed = millis() - smoke_relay_start_time;
+    if (smoke_relay_is_on)
+    {
+      // Currently HIGH, check if time to switch to LOW
+      if (elapsed >= SMOKE_RELAY_HIGH_TIME)
+      {
+        digitalWrite(SMOKE_RELAY, LOW);
+        smoke_relay_is_on = false;
+        smoke_relay_start_time = millis();
+      }
+    }
+    else
+    {
+      // Currently LOW, check if time to switch to HIGH or end cycle
+      if (elapsed >= SMOKE_RELAY_LOW_TIME)
+      {
+        smoke_relay_cycle_count++;
+        if (smoke_relay_cycle_count >= SMOKE_RELAY_CYCLES)
+        {
+          // All cycles complete, turn relay OFF and stop
+          digitalWrite(SMOKE_RELAY, LOW);
+          smoke_relay_active = false;
+          Serial.println("Smoke relay cycles complete.");
+        }
+        else
+        {
+          // Start next cycle: turn relay back ON
+          digitalWrite(SMOKE_RELAY, HIGH);
+          smoke_relay_is_on = true;
+          smoke_relay_start_time = millis();
+        }
+      }
+    }
   }
   // PalletSet();
   //   RunLed();
