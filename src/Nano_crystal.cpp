@@ -82,24 +82,26 @@ void setup()
   Serial.println(seed);
   Serial.print("Initial random palette number: ");
   Serial.println(colorSchemeNum);
-  // choose among PRG_SPIRAL, PRG_SPIRAL_MIRRORED, PRG_PULSES
-  {
-    uint8_t choice = random8(0, 3);
-    switch (choice)
-    {
-    case 0:
-      prognum = PRG_SPIRAL;
-      break;
-    case 1:
-      prognum = PRG_SPIRAL_MIRRORED;
-      break;
-    default:
-      prognum = PRG_PULSES;
-      break;
-    }
-    Serial.println("Initial random program number: " + String(prognum) );
-  }
-  
+  // // choose among PRG_SPIRAL, PRG_SPIRAL_MIRRORED, PRG_PULSES
+  // {
+  //   uint8_t choice = random8(0, 3);
+  //   switch (choice)
+  //   {
+  //   case 0:
+  //     prognum = PRG_SPIRAL;
+  //     break;
+  //   case 1:
+  //     prognum = PRG_SPIRAL_MIRRORED;
+  //     break;
+  //   default:
+  //     prognum = PRG_PULSES;
+  //     break;
+  //   }
+  //   Serial.println("Initial random program number: " + String(prognum) );
+    
+  // }
+  prognum = PRG_PULSES;
+  Serial.println("Initial program number-PRG_PULSES: " + String(prognum) );
   Serial.println("------setup done------");
 }
 
