@@ -31,7 +31,7 @@ static const uint8_t SPARKING = 50; // chance out of 255
 
 // Smoke relay timing constants (in milliseconds)
 static const unsigned long SMOKE_RELAY_HIGH_TIME = 3000;  // 3 seconds
-static const unsigned long SMOKE_RELAY_LOW_TIME = 30000;   // 30 seconds
+static const unsigned long SMOKE_RELAY_LOW_TIME = SMOKE_RELAY_HIGH_TIME*2.5;   
 static const int SMOKE_RELAY_CYCLES = 5;                   // repeat 5 times
 
 // Centralized program count (update when adding/removing programs)
