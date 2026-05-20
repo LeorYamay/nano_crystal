@@ -4,7 +4,7 @@
 #include "config.h"
 
 // Globals
-bool off = false;
+volatile bool off = false;
 
 // pins, chipset, geometry, and defaults are in config.h
 bool nextSwitch = false;
@@ -59,7 +59,7 @@ void setup()
   pinMode(PROGRAM_BUTTON, INPUT_PULLUP);
   pinMode(COLOR_BUTTON, INPUT_PULLUP);
   pinMode(SMOKE_RELAY, OUTPUT);
-  // pinMode(ONBOARD_LED, OUTPUT);
+  pinMode(ONBOARD_LED, OUTPUT);
   delay(1000);
   digitalWrite(SMOKE_RELAY, HIGH); // start relay ON
   smoke_relay_start_time = millis();
@@ -67,7 +67,7 @@ void setup()
   digitalWrite(ONBOARD_LED, HIGH);
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
-  attachInterrupt(POWER_SWITCH, SwitchOff, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(POWER_SWITCH), SwitchOff, CHANGE);
   // colorSchemeNum = EEPROM.read(0);
   // prognum = EEPROM.read(1);
   effects_init();
