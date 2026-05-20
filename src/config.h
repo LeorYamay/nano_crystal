@@ -11,7 +11,7 @@
 #define PROGRAM_BUTTON 6
 #define COLOR_BUTTON 5
 #define LED_PIN A1
-#define SMOKE_RELAY A0
+#define SMOKE_RELAY 3
 #define COLOR_ORDER GRB
 #define CHIPSET WS2813
 

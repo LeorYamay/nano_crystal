@@ -63,11 +63,11 @@ void setup()
   delay(1000);
   digitalWrite(SMOKE_RELAY, HIGH); // start relay ON
   smoke_relay_start_time = millis();
-  // digitalWrite(POWER_ON, HIGH);
-  // digitalWrite(ONBOARD_LED, HIGH);
+  digitalWrite(POWER_ON, HIGH);
+  digitalWrite(ONBOARD_LED, HIGH);
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
-  // attachInterrupt(0, SwitchOff, CHANGE);
+  attachInterrupt(POWER_SWITCH, SwitchOff, CHANGE);
   // colorSchemeNum = EEPROM.read(0);
   // prognum = EEPROM.read(1);
   effects_init();
@@ -324,10 +324,10 @@ void ProgramSwap()
 }
 void SwitchOff()
 {
-  if (!digitalRead(10))
+  if (!digitalRead(POWER_SWITCH))
   {
     off = true;
-    Serial.println("Switch off");
+    digitalWrite(ONBOARD_LED, HIGH);
   }
 }
 void MemUpdate()
@@ -343,7 +343,7 @@ void OffAction()
   FastLED.clear(true);
   FastLED.show(); // display this frame
   FastLED.delay(1000 / FRAMES_PER_SECOND);
-  // digitalWrite(ONBOARD_LED, HIGH);
+
 }
 
 // Effect implementations moved to src/effects.cpp
